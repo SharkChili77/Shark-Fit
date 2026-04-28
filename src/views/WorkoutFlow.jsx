@@ -10,7 +10,7 @@ import { Check, ChevronRight } from 'lucide-react';
 const WorkoutFlow = () => {
   const navigate = useNavigate();
   const { routines, exercises, history, activeWorkoutSession, startWorkout, updateWorkoutSession, finishWorkout } = useFitnessStore();
-  const { isActive, focusIndex, direction, inputCaches } = activeWorkoutSession;
+  const { isActive, focusIndex, direction, inputCaches, overrides = {} } = activeWorkoutSession;
 
   const today = getDayOfWeek();
   const todayStr = getTodayDateString();
@@ -40,9 +40,10 @@ const WorkoutFlow = () => {
   const trainingExercises = useMemo(() => {
     if (!trainingRoutine) return [];
     return trainingRoutine.exerciseIds
+      .map(id => overrides[id] ? overrides[id] : id)
       .map(id => exercises.find(e => e.id === id))
       .filter(Boolean);
-  }, [trainingRoutine, exercises]);
+  }, [trainingRoutine, exercises, overrides]);
 
   const getCache = useCallback((id) => inputCaches[id] || { weight: '', reps: '' }, [inputCaches]);
 
@@ -95,6 +96,10 @@ const WorkoutFlow = () => {
           onBackToList={() => updateWorkoutSession({ focusIndex: null, direction: -1 })}
           inputCache={getCache(currentExercise.id)}
           onInputChange={(field, val) => updateCache(currentExercise.id, field, val)}
+          onReplace={(newExId) => {
+            const originalId = trainingRoutine.exerciseIds[focusIndex];
+            updateWorkoutSession({ overrides: { ...overrides, [originalId]: newExId } });
+          }}
         />
       ) : (
         <motion.div

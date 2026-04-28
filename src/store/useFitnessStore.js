@@ -124,6 +124,22 @@ const useFitnessStore = create(
       },
 
       startGlobalTimer: (seconds, label = '休息') => {
+        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+          Notification.requestPermission();
+        }
+        // 尝试解锁 AudioContext
+        if (typeof window !== 'undefined') {
+          try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!window.globalAudioCtx) {
+              window.globalAudioCtx = new AudioContext();
+            }
+            if (window.globalAudioCtx.state === 'suspended') {
+              window.globalAudioCtx.resume();
+            }
+          } catch(e) {}
+        }
+        
         const endTime = Date.now() + seconds * 1000;
         set({ 
           globalTimer: { 
@@ -162,7 +178,32 @@ const useFitnessStore = create(
           if (remaining === 0) {
             set({ globalTimer: { ...get().globalTimer, isActive: false, endTime: null } });
             if (navigator.vibrate) {
-              navigator.vibrate([200, 100, 200]);
+              navigator.vibrate([200, 100, 200, 100, 400]);
+            }
+            if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+              new Notification('FinFit 提醒', { body: '休息结束，准备下一组！', icon: '/pwa-192x192.png' });
+            }
+            // 播放提示音 (连续三声滴答)
+            if (typeof window !== 'undefined' && window.globalAudioCtx) {
+              try {
+                const ctx = window.globalAudioCtx;
+                if (ctx.state === 'suspended') ctx.resume();
+                const playBeep = (freq, timeOffset) => {
+                  const osc = ctx.createOscillator();
+                  const gain = ctx.createGain();
+                  osc.type = 'sine';
+                  osc.frequency.setValueAtTime(freq, ctx.currentTime + timeOffset);
+                  gain.gain.setValueAtTime(0.15, ctx.currentTime + timeOffset);
+                  gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + timeOffset + 0.3);
+                  osc.connect(gain);
+                  gain.connect(ctx.destination);
+                  osc.start(ctx.currentTime + timeOffset);
+                  osc.stop(ctx.currentTime + timeOffset + 0.3);
+                };
+                playBeep(800, 0);
+                playBeep(800, 0.3);
+                playBeep(1046.5, 0.6); // 高音收尾
+              } catch(e) {}
             }
           }
         }

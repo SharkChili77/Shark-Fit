@@ -19,6 +19,7 @@ const ActiveExerciseView = ({
   onBackToList,
   inputCache,
   onInputChange,
+  onReplace,
 }) => {
   const { history, logWorkoutSet, globalTimer, startGlobalTimer, stopGlobalTimer, removeWorkoutSet, insertExerciseToRoutine, activeWorkoutSession } = useFitnessStore();
   const todayStr = getTodayDateString();
@@ -117,13 +118,30 @@ const ActiveExerciseView = ({
     startGlobalTimer(Number(exercise.rest) || 90, '组间休息');
   };
 
+  const estimated1RM = useMemo(() => {
+    const w = Number(inputCache.weight);
+    const r = Number(inputCache.reps);
+    if (w > 0 && r > 0) {
+      return Math.round(w * (1 + r / 30));
+    }
+    return null;
+  }, [inputCache.weight, inputCache.reps]);
+
   // ── 插入动作逻辑 ────────────────────────────────────────────────────────
   const [showInsertPicker, setShowInsertPicker] = useState(false);
+  const [showReplacePicker, setShowReplacePicker] = useState(false);
 
   const handleInsert = (targetExId) => {
     // 在当前索引的下一个位置插入
     insertExerciseToRoutine(activeWorkoutSession.selectedDay, targetExId, index + 1);
     setShowInsertPicker(false);
+  };
+
+  const handleReplace = (targetExId) => {
+    if (onReplace) {
+      onReplace(targetExId);
+    }
+    setShowReplacePicker(false);
   };
 
   // ── 动画定义 ────────────────────────────────────────────────────────────
@@ -176,8 +194,13 @@ const ActiveExerciseView = ({
                 <span className="text-[11px] font-bold px-2 py-0.5 bg-primary/20 text-primary rounded-full">{index+1}/{total}</span>
                 <span className="text-[11px] px-2 py-0.5 bg-neutral-800 text-neutral-400 rounded-full">{exercise.target}</span>
               </div>
-              <h1 className="text-2xl font-black text-white mt-1">{exercise.name}</h1>
-              <div className="flex items-center justify-between mt-1">
+              <div className="flex items-start justify-between mt-1">
+                <h1 className="text-2xl font-black text-white leading-tight pr-4">{exercise.name}</h1>
+                <button onClick={() => setShowReplacePicker(true)} className="text-[11px] bg-neutral-800 text-primary border border-primary/20 px-3 py-1.5 rounded-full font-bold btn-scale shadow-sm shrink-0 mt-1">
+                  替换动作
+                </button>
+              </div>
+              <div className="flex items-center justify-between mt-2">
                 <p className="text-sm text-neutral-500 font-mono">建议: {exercise.sets}组 × {exercise.reps}次 | 休息 {exercise.rest}s</p>
                 {isResting && (
                   <div className="flex items-center gap-2 bg-primary/10 border border-primary/20 px-3 py-1 rounded-full">
@@ -220,7 +243,14 @@ const ActiveExerciseView = ({
 
               <div className="glass-panel p-4 rounded-xl">
                 <div className="flex items-center justify-between mb-3 text-[11px] font-bold text-neutral-500">
-                  <span>记录本组</span>
+                  <div className="flex items-center gap-2">
+                    <span>记录本组</span>
+                    {estimated1RM && (
+                      <span className="bg-amber-500/20 text-amber-500 px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wider font-black">
+                        预估 1RM: {estimated1RM}kg
+                      </span>
+                    )}
+                  </div>
                   <button onClick={() => startGlobalTimer(Number(exercise.rest) || 90, '组间休息')} className="text-primary bg-primary/10 px-2 py-1 rounded">⏱️ 开始休息</button>
                 </div>
                 {inputCache.weight > 0 && (
@@ -277,6 +307,16 @@ const ActiveExerciseView = ({
         onClose={() => setShowInsertPicker(false)}
         onSelect={handleInsert}
         currentIndex={index}
+      />
+
+      {/* 5. 替换动作弹窗 */}
+      <ExercisePicker 
+        isOpen={showReplacePicker}
+        onClose={() => setShowReplacePicker(false)}
+        onSelect={handleReplace}
+        title="选择替换的动作"
+        defaultFilter={exercise.target === '腹部' ? '腹部' : exercise.target}
+        excludedId={exercise.id}
       />
     </div>
   );

@@ -7,11 +7,15 @@ import useFitnessStore from '../store/useFitnessStore';
  * 🆕 动作选择器组件 - 从底部弹出
  * 用于在训练过程中动态插入动作
  */
-const ExercisePicker = ({ isOpen, onClose, onSelect, currentIndex, title = "插入下一个动作" }) => {
+const ExercisePicker = ({ isOpen, onClose, onSelect, currentIndex, title = "插入下一个动作", defaultFilter = "全部", excludedId = null }) => {
   const { exercises } = useFitnessStore();
-  const [filter, setFilter] = useState('全部');
+  const [filter, setFilter] = useState(defaultFilter);
   const [searchQuery, setSearchQuery] = useState('');
   const listRef = useRef(null);
+
+  useEffect(() => {
+    if (isOpen) setFilter(defaultFilter);
+  }, [isOpen, defaultFilter]);
 
   const targets = ['全部', '胸', '背', '肩', '腿', '二头', '三头', '腹部', '核心', '小腿', '有氧'];
 
@@ -36,11 +40,12 @@ const ExercisePicker = ({ isOpen, onClose, onSelect, currentIndex, title = "插�
 
   const filteredExercises = useMemo(() => {
     return exercises.filter(ex => {
+      if (excludedId && ex.id === excludedId) return false;
       const matchFilter = filter === '全部' || ex.target === filter;
       const matchSearch = ex.name.toLowerCase().includes(searchQuery.toLowerCase());
       return matchFilter && matchSearch;
     });
-  }, [exercises, filter, searchQuery]);
+  }, [exercises, filter, searchQuery, excludedId]);
 
   return (
     <AnimatePresence>

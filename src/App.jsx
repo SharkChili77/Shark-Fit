@@ -17,7 +17,7 @@ import {
   ChevronDown, X, Link as LinkIcon, Mail, Camera, MessageSquare, Megaphone,
   Bell, Save, CheckCircle, Trash2, Loader2
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import useFitnessStore from './store/useFitnessStore';
 
@@ -25,15 +25,17 @@ import useFitnessStore from './store/useFitnessStore';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
-// 页面视图
+// 核心页面（不懒加载，保证首页秒开）
 import Dashboard from './views/Dashboard';
 import WorkoutFlow from './views/WorkoutFlow';
 import ExerciseLib from './views/ExerciseLib';
-import Settings from './views/Settings';
-import AnalyticsHub from './views/AnalyticsHub';
 import Login from './views/Login';
-import AdminPanel from './views/AdminPanel';
-import SocialLeaderboard from './views/SocialLeaderboard';
+
+// 非核心页面使用懒加载
+const Settings = lazy(() => import('./views/Settings'));
+const AnalyticsHub = lazy(() => import('./views/AnalyticsHub'));
+const AdminPanel = lazy(() => import('./views/AdminPanel'));
+const SocialLeaderboard = lazy(() => import('./views/SocialLeaderboard'));
 
 // 其他组件
 import ConfettiEffect from './components/ConfettiEffect';
@@ -275,7 +277,9 @@ const AppContent = () => {
       return (
         <div className="absolute inset-0 overflow-hidden z-10 opacity-100">
           <div className="w-full h-full p-4 overflow-y-auto">
-            <AdminPanel />
+            <Suspense fallback={<div className="flex justify-center items-center h-full"><Loader2 className="animate-spin text-primary" /></div>}>
+              <AdminPanel />
+            </Suspense>
           </div>
         </div>
       );
@@ -290,7 +294,9 @@ const AppContent = () => {
             }`}
         >
           <div className={`w-full h-full ${view.padding ? 'p-4 overflow-y-auto' : ''}`}>
-            {view.component}
+            <Suspense fallback={<div className="flex justify-center items-center h-full"><Loader2 className="animate-spin text-primary" /></div>}>
+              {view.component}
+            </Suspense>
           </div>
         </div>
       );

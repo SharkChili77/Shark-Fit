@@ -470,10 +470,14 @@ app.get('/api/sync/pull', requireAuth, (req, res) => {
       exerciseIds: JSON.parse(r.exerciseIds),
     }));
 
-    // 3. 该用户的打卡记录 → 组装为嵌套的 history[] 格式
+    // 3. 该用户的打卡记录 → 限制最近3个月 (减轻前端和网络压力)
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    const dateThreshold = threeMonthsAgo.toISOString().split('T')[0];
+
     const allSets = db.prepare(
-      'SELECT * FROM workout_sets WHERE user_id = ? ORDER BY date, created_at'
-    ).all(userId);
+      'SELECT * FROM workout_sets WHERE user_id = ? AND date >= ? ORDER BY date, created_at'
+    ).all(userId, dateThreshold);
 
     const historyMap = {};
     for (const s of allSets) {
@@ -496,10 +500,10 @@ app.get('/api/sync/pull', requireAuth, (req, res) => {
 
     const history = Object.values(historyMap).sort((a, b) => a.date.localeCompare(b.date));
 
-    // 4. 该用户的体重记录
+    // 4. 该用户的体重记录 -> 同理，限制最近3个月
     const bodyWeight = db.prepare(
-      'SELECT * FROM body_weight WHERE user_id = ? ORDER BY date ASC'
-    ).all(userId);
+      'SELECT * FROM body_weight WHERE user_id = ? AND date >= ? ORDER BY date ASC'
+    ).all(userId, dateThreshold);
 
     res.json({ exercises, routines, history, bodyWeight });
   } catch (err) {
