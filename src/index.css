@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-background text-white antialiased overflow-x-hidden;
+    background-image: radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.1) 0%, transparent 50%);
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    @apply bg-surface backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)];
+  }
+  
+  .glass-card {
+    @apply bg-neutral-900/60 backdrop-blur-lg border border-white/5 shadow-sm;
+  }
+
+  .btn-scale {
+    @apply active:scale-[0.97] transition-transform duration-200;
+  }
+}
+
+/* 自定义滚动条 (极客暗黑风) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-neutral-700 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-neutral-500;
+}
