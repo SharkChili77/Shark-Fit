@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import useFitnessStore from '../store/useFitnessStore';
 import { getDayOfWeek, getTodayDateString } from '../utils/dateUtils';
 import ActiveExerciseView from '../components/ActiveExerciseView';
+import { getDynamicRoutineName } from '../utils/routineUtils';
 import { Check, ChevronRight } from 'lucide-react';
 
 const WorkoutFlow = () => {
@@ -140,7 +141,7 @@ const WorkoutFlow = () => {
             {viewedRoutine && (
               <div className="text-center mb-5">
                 <span className="inline-block text-[11px] bg-neutral-900 border border-white/5 text-primary px-4 py-1.5 rounded-full font-black uppercase tracking-widest">
-                  {viewedRoutine.name}
+                  {getDynamicRoutineName(viewedRoutine, exercises)}
                 </span>
               </div>
             )}

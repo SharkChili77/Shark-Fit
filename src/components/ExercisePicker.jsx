@@ -13,7 +13,7 @@ const ExercisePicker = ({ isOpen, onClose, onSelect, currentIndex, title = "插�
   const [searchQuery, setSearchQuery] = useState('');
   const listRef = useRef(null);
 
-  const targets = ['全部', '胸', '背', '肩', '腿', '手臂', '二头', '三头', '腹部', '核心', '小腿', '有氧'];
+  const targets = ['全部', '胸', '背', '肩', '腿', '二头', '三头', '腹部', '核心', '小腿', '有氧'];
 
   // ── 1. 防止背景滚动 (Body Scroll Lock) ───────────────────────────────────
   useEffect(() => {

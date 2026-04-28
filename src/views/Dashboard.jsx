@@ -7,7 +7,7 @@ import useFitnessStore from '../store/useFitnessStore';
 import { getDayOfWeek, getTodayDateString } from '../utils/dateUtils';
 import Heatmap from '../components/Heatmap';
 import SocialWall from '../components/SocialWall';
-
+import { getDynamicRoutineName } from '../utils/routineUtils';
 const Dashboard = () => {
   const navigate = useNavigate();
   const { routines, exercises, bodyWeight, addBodyWeight, pullData, isPulling, setModalOpen } = useFitnessStore();
@@ -75,7 +75,7 @@ const Dashboard = () => {
       className="pb-32 px-4"
     >
       {/* 1. 头部：Dashboard + 体重 - 压缩间距 */}
-      <div className="flex items-center justify-between py-2 mb-4">
+      <div className="flex items-center justify-between py-2 mb-2">
         <h1 className="text-2xl font-black text-white tracking-tighter italic">DASHBOARD</h1>
         <div className="flex items-center gap-3">
           <button onClick={handleRefresh} className="w-9 h-9 flex items-center justify-center bg-neutral-900 border border-white/5 rounded-xl active:scale-90 transition-all">
@@ -89,7 +89,7 @@ const Dashboard = () => {
       </div>
 
       {/* 2. 热力图区域 - 紧凑布局 */}
-      <div className="flex items-stretch gap-2 mb-4">
+      <div className="flex items-stretch gap-2 mb-2">
         <div className="flex-1 min-w-0 scale-[0.98] origin-left">
           <Heatmap />
         </div>
@@ -108,18 +108,18 @@ const Dashboard = () => {
         </motion.button>
       </div>
 
-      {/* 3. 核心训练中枢 - 椭圆排列优化 */}
-      <div className="relative mt-12 pt-12 pb-4 mb-8 flex flex-col items-center justify-center min-h-[300px]">
-        {/* 顶部当前计划名称 */}
-        <div className="absolute -top-10 text-center z-30">
-          <div className="text-[10px] text-primary/60 font-black tracking-widest uppercase mb-1">
-            周{weekMap[dayOfWeek]} PLAN
-          </div>
-          <h2 className="text-xl font-black text-white tracking-tight">
-            {todayRoutine ? todayRoutine.name : 'RECOVERY DAY'}
-          </h2>
+      {/* 3. 当前计划名称 - 独立文档流 */}
+      <div className="text-center mt-4 mb-2">
+        <div className="text-[10px] text-primary/60 font-black tracking-widest uppercase mb-1">
+          周{weekMap[dayOfWeek]} PLAN
         </div>
+        <h2 className="text-xl font-black text-white tracking-tight">
+          {todayRoutine ? getDynamicRoutineName(todayRoutine, exercises) : 'RECOVERY DAY'}
+        </h2>
+      </div>
 
+      {/* 4. 核心训练中枢 - 椭圆排列优化 */}
+      <div className="relative mb-8 flex flex-col items-center justify-center min-h-[300px]">
         {/* 背景装饰：发光圆环 */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="w-64 h-64 bg-primary/5 rounded-full blur-[80px]" />
@@ -142,14 +142,14 @@ const Dashboard = () => {
           <span className="text-[10px] font-black text-white mt-1 tracking-[0.3em] uppercase opacity-80">Start</span>
         </motion.button>
 
-        {/* 环绕训练计划：卫星式布局 - 椭圆算法 */}
+        {/* 环绕训练计划：卫星式布局 - 精确间距算法 */}
         <div className="absolute inset-0 z-10">
           {todayExercises.length > 0 ? (
             todayExercises.map((ex, i) => {
               const total = todayExercises.length;
-              // 1. 椭圆半径微调：增加水平宽度防止底部重叠
-              const radiusX = 145;
-              const radiusY = 115; 
+              // 精确控制：均匀椭圆布局，标题已独立无需偏移
+              const radiusX = 148;
+              const radiusY = 110;
               const angle = (i * (360 / total)) - 90;
               const radian = (angle * Math.PI) / 180;
               const x = Math.cos(radian) * radiusX;
@@ -182,8 +182,8 @@ const Dashboard = () => {
 
       </div>
 
-      {/* 4. PR 荣誉墙：整体下移 */}
-      <div className="mt-12 pt-12 border-t border-white/5">
+      {/* 5. PR 荣誉墙 */}
+      <div className="mt-4 pt-6 border-t border-white/5">
         <SocialWall />
       </div>
 

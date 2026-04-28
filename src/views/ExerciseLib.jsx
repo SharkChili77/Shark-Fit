@@ -4,11 +4,11 @@ import {
   AlertTriangle, Calendar, ChevronRight, ArrowUp, ArrowDown, Settings2, Info,
   ChevronLeft, Trophy, Search, GripVertical, ArrowLeftRight
 } from 'lucide-react';
-import { motion, AnimatePresence, useIsPresent, Reorder } from 'framer-motion';
+import { motion, AnimatePresence, useIsPresent, Reorder, useDragControls } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import useFitnessStore from '../store/useFitnessStore';
 import ExercisePicker from '../components/ExercisePicker';
-
+import { getDynamicRoutineName } from '../utils/routineUtils';
 // ─── 性能优化点 1：剥离 Recharts 渲染为独立 Memo 组件 ───────────────────
 // 这样在动作列表挂载时，不会在主线程计算和准备 SVG DOM。只有在真展开时才实例化。
 const ExerciseChart = memo(({ exerciseId, history }) => {
@@ -177,6 +177,72 @@ const ExerciseListItem = memo(({ ex, isExpanded, onToggle, onRemove, history }) 
 });
 ExerciseListItem.displayName = 'ExerciseListItem';
 
+// ─── 性能优化点 3：周计划动作拖拽项 ─────────────────────────────────────────
+const RoutineReorderItem = memo(({ 
+  exId, ex, expandedRoutineExId, setExpandedRoutineExId, 
+  setInsertingAtIndex, reorderingIds, setShowRoutinePicker, 
+  toggleRoutineExercise, selectedRoutineDay 
+}) => {
+  const controls = useDragControls();
+
+  return (
+    <Reorder.Item 
+      value={exId}
+      dragControls={controls}
+      dragListener={false} // 关闭默认的整行拖拽
+      onClick={() => setExpandedRoutineExId(expandedRoutineExId === exId ? null : exId)}
+      className={`bg-surface border ${expandedRoutineExId === exId ? 'border-primary/50 shadow-lg shadow-primary/5' : 'border-neutral-800/80'} rounded-2xl p-4 transition-all select-none group relative cursor-pointer`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div 
+            className="p-1 text-neutral-700 group-hover:text-neutral-500 cursor-grab active:cursor-grabbing touch-none" 
+            onPointerDown={(e) => controls.start(e)}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <GripVertical size={20} />
+          </div>
+          <div>
+            <div className="font-bold text-white group-hover:text-primary transition-colors">{ex.name}</div>
+            <div className="text-[10px] text-neutral-500 mt-0.5">{ex.target} · {ex.sets}组</div>
+          </div>
+        </div>
+        <div className={`transition-transform duration-300 ${expandedRoutineExId === exId ? 'rotate-180 text-primary' : 'text-neutral-600'}`}>
+          <ChevronDown size={20} />
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {expandedRoutineExId === exId && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex gap-2 mt-4 pt-4 border-t border-white/5">
+              <button 
+                onClick={() => { setInsertingAtIndex(reorderingIds.indexOf(exId)); setShowRoutinePicker(true); }}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl text-xs font-bold transition-all"
+              >
+                <Plus size={16} /> 下方插入动作
+              </button>
+              <button 
+                onClick={() => toggleRoutineExercise(selectedRoutineDay, exId)} 
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-danger/10 hover:bg-danger/20 text-danger rounded-xl text-xs font-bold transition-all"
+              >
+                <Trash2 size={16} /> 移除动作
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </Reorder.Item>
+  );
+});
+RoutineReorderItem.displayName = 'RoutineReorderItem';
+
 const ExerciseLib = () => {
   const { 
     exercises, routines, history, trash, addExercise, removeExercise, 
@@ -208,7 +274,7 @@ const ExerciseLib = () => {
   const [reorderingIds, setReorderingIds] = useState([]);
   const [expandedRoutineExId, setExpandedRoutineExId] = useState(null); // 🆕 用于控制周计划中哪个动作处于展开操作态
 
-  const targets = ['胸', '背', '肩', '腿', '手臂', '二头', '三头', '腹部', '核心', '小腿', '有氧'];
+  const targets = ['胸', '背', '肩', '腿', '二头', '三头', '腹部', '核心', '小腿', '有氧'];
   const allFilters = ['全部', ...targets];
   const days = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
@@ -558,7 +624,7 @@ const ExerciseLib = () => {
                           {days[routine.dayOfWeek].charAt(1)}
                         </div>
                         <div className="text-left">
-                          <div className="font-black text-white group-hover:text-primary transition-colors text-lg tracking-tight">{days[routine.dayOfWeek]} · {routine.name}</div>
+                          <div className="font-black text-white group-hover:text-primary transition-colors text-lg tracking-tight">{days[routine.dayOfWeek]} · {getDynamicRoutineName(routine, exercises)}</div>
                           <div className="text-xs text-neutral-500 mt-1 line-clamp-1 max-w-[200px]">
                             {routine.exerciseIds.length > 0 
                               ? `${routine.exerciseIds.length} 个动作: ${routine.exerciseIds.map(id => exercises.find(e => e.id === id)?.name).filter(Boolean).join('、')}`
@@ -620,54 +686,18 @@ const ExerciseLib = () => {
                         const ex = exercises.find(e => e.id === exId);
                         if (!ex) return null;
                         return (
-                          <Reorder.Item 
-                            key={exId} 
-                            value={exId}
-                            onClick={() => setExpandedRoutineExId(expandedRoutineExId === exId ? null : exId)}
-                            className={`bg-surface border ${expandedRoutineExId === exId ? 'border-primary/50 shadow-lg shadow-primary/5' : 'border-neutral-800/80'} rounded-2xl p-4 transition-all select-none group relative cursor-pointer`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-4">
-                                <div className="p-1 text-neutral-700 group-hover:text-neutral-500 cursor-grab active:cursor-grabbing" onClick={(e) => e.stopPropagation()}>
-                                  <GripVertical size={20} />
-                                </div>
-                                <div>
-                                  <div className="font-bold text-white group-hover:text-primary transition-colors">{ex.name}</div>
-                                  <div className="text-[10px] text-neutral-500 mt-0.5">{ex.target} · {ex.sets}组</div>
-                                </div>
-                              </div>
-                              <div className={`transition-transform duration-300 ${expandedRoutineExId === exId ? 'rotate-180 text-primary' : 'text-neutral-600'}`}>
-                                <ChevronDown size={20} />
-                              </div>
-                            </div>
-
-                            <AnimatePresence>
-                              {expandedRoutineExId === exId && (
-                                <motion.div 
-                                  initial={{ height: 0, opacity: 0 }}
-                                  animate={{ height: 'auto', opacity: 1 }}
-                                  exit={{ height: 0, opacity: 0 }}
-                                  className="overflow-hidden"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <div className="flex gap-2 mt-4 pt-4 border-t border-white/5">
-                                    <button 
-                                      onClick={() => { setInsertingAtIndex(reorderingIds.indexOf(exId)); setShowRoutinePicker(true); }}
-                                      className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl text-xs font-bold transition-all"
-                                    >
-                                      <Plus size={16} /> 下方插入动作
-                                    </button>
-                                    <button 
-                                      onClick={() => toggleRoutineExercise(selectedRoutineDay, exId)} 
-                                      className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-danger/10 hover:bg-danger/20 text-danger rounded-xl text-xs font-bold transition-all"
-                                    >
-                                      <Trash2 size={16} /> 移除动作
-                                    </button>
-                                  </div>
-                                </motion.div>
-                              )}
-                            </AnimatePresence>
-                          </Reorder.Item>
+                          <RoutineReorderItem 
+                            key={exId}
+                            exId={exId}
+                            ex={ex}
+                            expandedRoutineExId={expandedRoutineExId}
+                            setExpandedRoutineExId={setExpandedRoutineExId}
+                            setInsertingAtIndex={setInsertingAtIndex}
+                            reorderingIds={reorderingIds}
+                            setShowRoutinePicker={setShowRoutinePicker}
+                            toggleRoutineExercise={toggleRoutineExercise}
+                            selectedRoutineDay={selectedRoutineDay}
+                          />
                         );
                       })}
                     </Reorder.Group>

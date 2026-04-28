@@ -58,13 +58,15 @@ const AnalyticsHub = () => {
         const bestSet = workout.sets.reduce((best, s) => s.weight > best.weight ? s : best, workout.sets[0]);
         const est1RM = bestSet.reps > 0 ? bestSet.weight / (1.0278 - 0.0278 * bestSet.reps) : bestSet.weight;
         return {
+          dateKey: day.date,
           date: day.date,
           displayDate: format(parseISO(day.date), 'MM/dd'),
           weight: maxW,
           oneRM: Math.round(est1RM * 10) / 10
         };
       })
-      .filter(Boolean);
+      .filter(Boolean)
+      .sort((a, b) => a.dateKey.localeCompare(b.dateKey));
   }, [history, selectedExerciseId, dateLimit]);
 
   // ── 2. 体重趋势数据 ──────────────────────────────────────────────────
@@ -75,19 +77,20 @@ const AnalyticsHub = () => {
         ...bw,
         displayDate: format(parseISO(bw.date), 'MM/dd'),
         hasWorkout: history.some(h => h.date === bw.date && h.workouts.length > 0)
-      }));
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
   }, [bodyWeight, history, dateLimit]);
 
-  // ── 3. 训练容量分布 (按周聚合，按肌群堆叠) ──────────────────────────
+  // ── 3. 训练容量分布 (按日聚合，按肌群堆叠) ──────────────────────────
   const volumeData = useMemo(() => {
-    const weeks = {};
+    const days = {};
     history.forEach(day => {
       if (!isInRange(day.date)) return;
-      const dateObj = parseISO(day.date);
-      const weekKey = format(startOfWeek(dateObj), 'yyyy-MM-dd');
-      if (!weeks[weekKey]) {
-        weeks[weekKey] = { 
-          week: format(parseISO(weekKey), 'MM/dd'),
+      const dateKey = day.date;
+      if (!days[dateKey]) {
+        days[dateKey] = { 
+          dateKey,
+          displayDate: format(parseISO(dateKey), 'MM/dd'),
           totalWeight: 0,
           totalSets: 0
         };
@@ -99,16 +102,16 @@ const AnalyticsHub = () => {
         const setNum = w.sets.length;
 
         // 初始化该肌群的统计
-        if (!weeks[weekKey][`${target}_weight`]) weeks[weekKey][`${target}_weight`] = 0;
-        if (!weeks[weekKey][`${target}_sets`]) weeks[weekKey][`${target}_sets`] = 0;
+        if (!days[dateKey][`${target}_weight`]) days[dateKey][`${target}_weight`] = 0;
+        if (!days[dateKey][`${target}_sets`]) days[dateKey][`${target}_sets`] = 0;
 
-        weeks[weekKey][`${target}_weight`] += weightSum;
-        weeks[weekKey][`${target}_sets`] += setNum;
-        weeks[weekKey].totalWeight += weightSum;
-        weeks[weekKey].totalSets += setNum;
+        days[dateKey][`${target}_weight`] += weightSum;
+        days[dateKey][`${target}_sets`] += setNum;
+        days[dateKey].totalWeight += weightSum;
+        days[dateKey].totalSets += setNum;
       });
     });
-    return Object.values(weeks).sort((a, b) => a.week.localeCompare(b.week));
+    return Object.values(days).sort((a, b) => a.dateKey.localeCompare(b.dateKey));
   }, [history, exercises, dateLimit]);
 
   // ── 4. 概览指标汇总 ──────────────────────────────────────────────────
@@ -392,7 +395,7 @@ const AnalyticsHub = () => {
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={volumeData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#262626" vertical={false} />
-                <XAxis dataKey="week" stroke="#525252" fontSize={10} tickLine={false} axisLine={false} />
+                <XAxis dataKey="displayDate" stroke="#525252" fontSize={10} tickLine={false} axisLine={false} />
                 <YAxis stroke="#525252" fontSize={10} tickLine={false} axisLine={false} width={45} />
                 <Tooltip 
                   formatter={(value, name) => {
