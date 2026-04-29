@@ -81,13 +81,6 @@ const AppContent = () => {
     if (isAdminAnnOpen) loadAnnHistory();
   }, [isAdminAnnOpen]);
 
-  useEffect(() => {
-    // 自动弹窗逻辑：有激活公告 且 ID 与本地记录的不一致
-    if (announcement && announcement.active && announcement.id !== dismissedAnnouncementId) {
-      setShowAnnModal(true);
-    }
-  }, [announcement, dismissedAnnouncementId]);
-
   // ── 欢迎弹窗：按用户ID持久化，每个账号只弹一次 ──────────────────────────
   // 用 localStorage 存储每个用户的已阅状态，key = 'sharkfit_welcome_{userId}'
   // 这样即使 logout 清空了 Zustand 缓存，同一用户下次登录也不会重复弹出
@@ -107,6 +100,13 @@ const AppContent = () => {
     // 同时更新 Zustand（向后兼容）
     useFitnessStore.setState({ hasSeenWelcome: true });
   };
+
+  // 自动弹窗逻辑：欢迎弹窗关闭后，如果有未读公告则弹出
+  useEffect(() => {
+    if (!showWelcome && announcement && announcement.active && announcement.id !== dismissedAnnouncementId) {
+      setShowAnnModal(true);
+    }
+  }, [announcement, dismissedAnnouncementId, showWelcome]);
 
   // ── 隐藏设置入口：长按动作库图标 3 秒 ──────────────────────────────────
   const longPressTimer = useRef(null);
@@ -498,7 +498,7 @@ const AppContent = () => {
                   欢迎使用 <span className="text-primary font-bold">FinFit</span>。这是一个专注于纯粹训练体验的健身系统。
                 </p>
                 <p className="text-xs text-neutral-500 bg-white/5 p-3 rounded-xl border border-white/5 mb-8 leading-relaxed">
-                  💡 <span className="text-neutral-300">提示：</span>系统内预设的计划均为<span className="text-primary">鲨鱼本人训练计划</span>。如需定制专属健身计划或开发新功能，请随时联系微信。
+                  💡 <span className="text-neutral-300">提示：</span>系统内预设的计划均为<span className="text-primary">初始推荐计划</span>。在动作库中可以快捷修改切换自己的计划，任何意见可以点击“反馈建议”快捷反馈。
                 </p>
 
                 <div className="space-y-4 mb-8">
@@ -508,7 +508,7 @@ const AppContent = () => {
                     </div>
                     <div>
                       <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">制作者</div>
-                      <div className="text-white font-bold">鱼健 (FinFit)</div>
+                      <div className="text-white font-bold">Shark</div>
                     </div>
                   </div>
                 </div>

@@ -15,6 +15,8 @@ const WorkoutFlow = () => {
   const today = getDayOfWeek();
   const todayStr = getTodayDateString();
   const [selectedDay, setSelectedDay] = useState(today);
+  const [viewFocusIndex, setViewFocusIndex] = useState(null);
+  const [viewDirection, setViewDirection] = useState(1);
   const daysLabels = ['日', '一', '二', '三', '四', '五', '六'];
 
   // 1. 查看模式下的动作列表 (跟随顶部切换)
@@ -56,24 +58,37 @@ const WorkoutFlow = () => {
     });
   }, [inputCaches, updateWorkoutSession]);
 
-  const currentExercise = (isActive && focusIndex !== null && trainingExercises[focusIndex]) ? trainingExercises[focusIndex] : null;
+  const isTrainingFocus = isActive && selectedDay === trainingDay && focusIndex !== null;
+  const isViewingFocus = (!isActive || selectedDay !== trainingDay) && viewFocusIndex !== null;
+
+  const currentExercise = isTrainingFocus 
+    ? (trainingExercises[focusIndex] || null)
+    : (isViewingFocus ? (viewedExercises[viewFocusIndex] || null) : null);
 
   const enterFocus = (index, dir = 1) => {
-    // 如果点击的是正在看的日期，但还没开练，则开始新训练
-    if (!isActive) {
-      startWorkout(selectedDay);
-    } else if (selectedDay !== trainingDay) {
-      // 如果正在练 A 日，却点击了 B 日的动作，建议先回到 A 日或直接切换到 A 日的焦点
-      setSelectedDay(trainingDay);
-      return;
+    if (isActive && selectedDay === trainingDay) {
+      updateWorkoutSession({ focusIndex: index, direction: dir });
+    } else {
+      setViewFocusIndex(index);
+      setViewDirection(dir);
     }
-    updateWorkoutSession({ focusIndex: index, direction: dir });
   };
 
-  const handlePrev = () => { if (focusIndex > 0) updateWorkoutSession({ focusIndex: focusIndex - 1, direction: -1 }); };
+  const handlePrev = () => {
+    if (isTrainingFocus) {
+      if (focusIndex > 0) updateWorkoutSession({ focusIndex: focusIndex - 1, direction: -1 });
+    } else {
+      if (viewFocusIndex > 0) { setViewFocusIndex(viewFocusIndex - 1); setViewDirection(-1); }
+    }
+  };
+
   const handleNext = () => {
-    if (focusIndex < trainingExercises.length - 1) updateWorkoutSession({ focusIndex: focusIndex + 1, direction: 1 });
-    else finishWorkout();
+    if (isTrainingFocus) {
+      if (focusIndex < trainingExercises.length - 1) updateWorkoutSession({ focusIndex: focusIndex + 1, direction: 1 });
+      else finishWorkout();
+    } else {
+      if (viewFocusIndex < viewedExercises.length - 1) { setViewFocusIndex(viewFocusIndex + 1); setViewDirection(1); }
+    }
   };
 
   const getSetsToday = (exerciseId) => {
@@ -88,18 +103,32 @@ const WorkoutFlow = () => {
         <ActiveExerciseView
           key="active-exercise-container"
           exercise={currentExercise}
-          index={focusIndex}
-          total={trainingExercises.length}
-          direction={direction}
+          index={isTrainingFocus ? focusIndex : viewFocusIndex}
+          total={isTrainingFocus ? trainingExercises.length : viewedExercises.length}
+          direction={isTrainingFocus ? direction : viewDirection}
           onPrev={handlePrev}
           onNext={handleNext}
-          onBackToList={() => updateWorkoutSession({ focusIndex: null, direction: -1 })}
+          onBackToList={() => {
+            if (isTrainingFocus) updateWorkoutSession({ focusIndex: null, direction: -1 });
+            else setViewFocusIndex(null);
+          }}
           inputCache={getCache(currentExercise.id)}
           onInputChange={(field, val) => updateCache(currentExercise.id, field, val)}
           onReplace={(newExId) => {
-            const originalId = trainingRoutine.exerciseIds[focusIndex];
-            updateWorkoutSession({ overrides: { ...overrides, [originalId]: newExId } });
+            if (isTrainingFocus && trainingRoutine?.exerciseIds[focusIndex]) {
+              const originalId = trainingRoutine.exerciseIds[focusIndex];
+              updateWorkoutSession({ overrides: { ...overrides, [originalId]: newExId } });
+            }
           }}
+          isTrainingMode={isTrainingFocus}
+          onStartWorkout={() => {
+            if (!isActive) {
+              startWorkout(selectedDay);
+              updateWorkoutSession({ focusIndex: viewFocusIndex, direction: 1 });
+              setViewFocusIndex(null);
+            }
+          }}
+          isActiveSession={isActive}
         />
       ) : (
         <motion.div
@@ -161,10 +190,8 @@ const WorkoutFlow = () => {
                   return (
                     <button
                       key={ex.id}
-                      onClick={() => isClickable && enterFocus(idx, 1)}
-                      className={`w-full p-4 rounded-2xl border flex items-center gap-4 transition-all ${
-                        isClickable ? 'bg-neutral-900 border-white/5 active:scale-95' : 'bg-neutral-900/40 border-transparent opacity-60 grayscale'
-                      }`}
+                      onClick={() => enterFocus(idx, 1)}
+                      className="w-full p-4 rounded-2xl border flex items-center gap-4 transition-all bg-neutral-900 border-white/5 active:scale-95"
                     >
                       <div className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center font-black text-sm ${isStarted ? 'bg-primary/20 text-primary' : 'bg-neutral-800 text-neutral-500'}`}>
                         {isStarted ? <Check size={18} strokeWidth={3} /> : idx + 1}
@@ -173,7 +200,7 @@ const WorkoutFlow = () => {
                         <div className="font-bold text-white text-base">{ex.name}</div>
                         <div className="text-xs text-neutral-500 font-bold mt-0.5">{ex.sets}组 · {ex.reps}次</div>
                       </div>
-                      {isClickable ? <ChevronRight size={18} className="text-neutral-600" /> : <div className="text-[10px] font-bold text-neutral-700">预览</div>}
+                      <ChevronRight size={18} className="text-neutral-600" />
                     </button>
                   );
                 })}
@@ -193,7 +220,10 @@ const WorkoutFlow = () => {
                       <button onClick={finishWorkout} className="w-full py-3 rounded-2xl font-bold text-red-500 bg-red-500/5 border border-red-500/10 hover:bg-red-500/10 transition-colors">结束训练</button>
                     </div>
                   ) : (
-                    <button onClick={() => enterFocus(0, 1)} className="w-full py-4 bg-primary rounded-2xl font-black text-white text-lg shadow-lg shadow-primary/20 btn-scale">
+                    <button onClick={() => {
+                      startWorkout(selectedDay);
+                      updateWorkoutSession({ focusIndex: 0, direction: 1 });
+                    }} className="w-full py-4 bg-primary rounded-2xl font-black text-white text-lg shadow-lg shadow-primary/20 btn-scale">
                       ⚡ 开始训练
                     </button>
                   )}
