@@ -1,13 +1,25 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   TrendingUp, Scale, BarChart3, 
   Plus, ArrowLeft, Trophy, Flame
 } from 'lucide-react';
-import { 
-  LineChart, Line, AreaChart, Area, BarChart, Bar, ComposedChart,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
-} from 'recharts';
+import {
+  LazyLineChart as LineChart,
+  LazyLine as Line,
+  LazyAreaChart as AreaChart,
+  LazyArea as Area,
+  LazyBarChart as BarChart,
+  LazyBar as Bar,
+  LazyComposedChart as ComposedChart,
+  LazyXAxis as XAxis,
+  LazyYAxis as YAxis,
+  LazyCartesianGrid as CartesianGrid,
+  LazyTooltip as Tooltip,
+  LazyResponsiveContainer as ResponsiveContainer,
+  LazyLegend as Legend,
+  ChartSkeleton,
+} from '../components/LazyChart';
 import { format, subMonths, parseISO, startOfWeek } from 'date-fns';
 import useFitnessStore from '../store/useFitnessStore';
 import { useNavigate } from 'react-router-dom';
@@ -249,6 +261,7 @@ const AnalyticsHub = () => {
         </select>
         
         <div style={{ width: '100%', height: '220px' }}>
+          <Suspense fallback={<ChartSkeleton height={220} />}>
           {strengthData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={strengthData}>
@@ -289,6 +302,7 @@ const AnalyticsHub = () => {
           ) : (
             <EmptyChart message="选择动作后将展示力量增长趋势" />
           )}
+          </Suspense>
         </div>
         {strengthData.length > 0 && (
           <div className="mt-2 flex items-center gap-4 text-[10px] text-neutral-500 justify-center">
@@ -313,6 +327,7 @@ const AnalyticsHub = () => {
         </div>
 
         <div style={{ width: '100%', height: '200px' }}>
+          <Suspense fallback={<ChartSkeleton height={200} />}>
           {weightData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={weightData}>
@@ -359,6 +374,7 @@ const AnalyticsHub = () => {
           ) : (
             <EmptyChart message="点击右上角 '+' 开始记录体重" />
           )}
+          </Suspense>
         </div>
         {weightData.length > 0 && (
           <div className="mt-2 flex items-center gap-4 text-[10px] text-neutral-500 justify-center">
@@ -391,6 +407,7 @@ const AnalyticsHub = () => {
         </div>
 
         <div style={{ width: '100%', height: '260px' }}>
+          <Suspense fallback={<ChartSkeleton height={260} />}>
           {volumeData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={volumeData}>
@@ -462,6 +479,7 @@ const AnalyticsHub = () => {
           ) : (
             <EmptyChart message="训练数据积累后将展示各肌群容量分布" />
           )}
+          </Suspense>
         </div>
       </div>
 

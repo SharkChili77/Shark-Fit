@@ -28,21 +28,55 @@ const db = require('./db');  // 引入数据库模块 (自动完成建表、迁�
 
 // 引入认证中间件和路由
 const { requireAuth } = require('./middleware/auth');
+const { validate, schemas } = require('./middleware/validate');
 const authRouter  = require('./routes/auth');
 const adminRouter = require('./routes/admin');
 const systemRouter = require('./routes/system'); // 🆕 引入系统配置路由
 const socialRouter = require('./routes/social');
 
+// 🆕 安全加固
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// ─── 中间件 ──────────────────────────────────────────────────────────────────
+// ─── 中间件 ────────────────────────────────────────────────────────────────────
+
+// 🆕 安全响应头（Helmet 自动添加 X-Content-Type-Options, X-Frame-Options 等）
+app.use(helmet({
+  contentSecurityPolicy: false, // PWA 需要内联脚本，禁用 CSP 防止冲突
+  crossOriginEmbedderPolicy: false, // 允许加载外部图片
+  crossOriginResourcePolicy: false, // 允许前端跨域加载 /uploads/ 下的头像和图片
+}));
 
 // 跨域处理
 app.use(cors());
 
 // 解析 JSON 请求体
 app.use(express.json({ limit: '5mb' }));
+
+// 🆕 全局限流：每个 IP 每 15 分钟最多 200 次请求
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  message: { error: '请求过于频繁，请稍后再试' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/', globalLimiter);
+
+// 🆕 严格限流：登录/注册/验证码接口，每个 IP 每分钟最多 5 次
+const authLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  message: { error: '操作过于频繁，请 1 分钟后再试' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/auth/send-code', authLimiter);
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
 
 // 🆕 静态资源挂载：让浏览器能访问上传的头像
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -97,7 +131,7 @@ app.get('/api/exercises', requireAuth, (req, res) => {
  * POST /api/exercises
  * 新增一个动作（自动绑定到当前用户）
  */
-app.post('/api/exercises', requireAuth, (req, res) => {
+app.post('/api/exercises', requireAuth, validate(schemas.exercise), (req, res) => {
   try {
     const { name, target, sets, reps, rest, imageUrl, notes } = req.body;
 
@@ -123,7 +157,7 @@ app.post('/api/exercises', requireAuth, (req, res) => {
  * PUT /api/exercises/:id
  * 修改一个动作（校验归属权）
  */
-app.put('/api/exercises/:id', requireAuth, (req, res) => {
+app.put('/api/exercises/:id', requireAuth, validate(schemas.exerciseUpdate), (req, res) => {
   try {
     const { id } = req.params;
     // 查询时同时验证 user_id，防止用户修改他人的动作
@@ -218,7 +252,7 @@ app.get('/api/routines', requireAuth, (req, res) => {
  * PUT /api/routines/:dayOfWeek
  * 修改某天的训练计划（校验归属权）
  */
-app.put('/api/routines/:dayOfWeek', requireAuth, (req, res) => {
+app.put('/api/routines/:dayOfWeek', requireAuth, validate(schemas.routineUpdate), (req, res) => {
   try {
     const dayOfWeek = Number(req.params.dayOfWeek);
     const { name, exerciseIds } = req.body;
@@ -282,7 +316,7 @@ app.get('/api/records', requireAuth, (req, res) => {
 /**
  * POST /api/records
  */
-app.post('/api/records', requireAuth, (req, res) => {
+app.post('/api/records', requireAuth, validate(schemas.record), (req, res) => {
   try {
     const { exerciseId, date, weight, reps } = req.body;
     const userId = req.user.id;
@@ -343,7 +377,7 @@ app.delete('/api/records/:id', requireAuth, (req, res) => {
 // 体重 API
 // ═══════════════════════════════════════════════════════════════════════════
 
-app.post('/api/bodyweight', requireAuth, (req, res) => {
+app.post('/api/bodyweight', requireAuth, validate(schemas.bodyWeight), (req, res) => {
   try {
     const { weight, date } = req.body;
     const userId = req.user.id;

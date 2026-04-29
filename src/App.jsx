@@ -41,6 +41,9 @@ const SocialLeaderboard = lazy(() => import('./views/SocialLeaderboard'));
 import ConfettiEffect from './components/ConfettiEffect';
 import DynamicIslandTimer from './components/DynamicIslandTimer';
 import ChangePasswordModal from './components/ChangePasswordModal';
+import TapGlowEffect from './components/TapGlowEffect';
+import ErrorBoundary from './components/ErrorBoundary';
+import { compressImage } from './utils/imageUtils';
 
 // 动态识别 API 地址：本地开发用 3001 端口，线上环境自动使用当前域名
 const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
@@ -138,15 +141,17 @@ const AppContent = () => {
   }, [user, profileModal]);
 
   // 处理文件选择预览
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        setChangeError('图片不能超过 2MB');
+      if (file.size > 5 * 1024 * 1024) {
+        setChangeError('图片不能超过 5MB');
         return;
       }
-      setSelectedFile(file);
-      setPreviewUrl(URL.createObjectURL(file));
+      // 客户端压缩：将图片压缩到 100KB 以内，最大 512px
+      const compressed = await compressImage(file, { maxSizeMB: 0.1, maxWidthOrHeight: 512 });
+      setSelectedFile(compressed);
+      setPreviewUrl(URL.createObjectURL(compressed));
     }
   };
 
@@ -947,32 +952,35 @@ const NavItem = ({ to, icon, label, active }) => (
 
 function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* 公开路由：登录/注册页 */}
-          <Route path="/login" element={<Login />} />
+    <ErrorBoundary>
+      <AuthProvider>
+        <TapGlowEffect />
+        <BrowserRouter>
+          <Routes>
+            {/* 公开路由：登录/注册页 */}
+            <Route path="/login" element={<Login />} />
 
-          {/* 受保护路由：需要登录 */}
-          <Route
-            path="/*"
-            element={
-              <ProtectedRoute>
-                <AppContent />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/leaderboard"
-            element={
-              <ProtectedRoute>
-                <SocialLeaderboard />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+            {/* 受保护路由：需要登录 */}
+            <Route
+              path="/*"
+              element={
+                <ProtectedRoute>
+                  <AppContent />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/leaderboard"
+              element={
+                <ProtectedRoute>
+                  <SocialLeaderboard />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

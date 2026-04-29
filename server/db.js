@@ -279,4 +279,27 @@ if (exerciseCount.cnt === 0) {
   console.log(`[DB] ✅ 已播种 ${defaultExercises.length} 个标准动作, ${defaultRoutines.length} 条周计划模板`);
 }
 
+// ─── 第五步：创建复合索引（加速多用户场景下的常见查询）────────────────────────
+//
+// 当查询条件同时包含 user_id + 另一列时，复合索引比单列索引快得多。
+// IF NOT EXISTS 保证幂等，重复执行不会报错。
+//
+try {
+  db.exec(`
+    -- 打卡记录：按用户+动作查询（力量增长趋势、PR 计算）
+    CREATE INDEX IF NOT EXISTS idx_workout_user_exercise ON workout_sets(user_id, exerciseId);
+
+    -- 打卡记录：按用户+日期查询（每日汇总、热力图）
+    CREATE INDEX IF NOT EXISTS idx_workout_user_date ON workout_sets(user_id, date);
+
+    -- 体重记录：按用户+日期查询（体重趋势图）
+    CREATE INDEX IF NOT EXISTS idx_bodyweight_user_date ON body_weight(user_id, date);
+
+    -- 周计划：按用户+星期查询（获取某天的训练计划）
+    CREATE INDEX IF NOT EXISTS idx_routines_user_day ON routines(user_id, dayOfWeek);
+  `);
+} catch (err) {
+  console.warn('[DB 索引] 创建跳过:', err.message);
+}
+
 module.exports = db;
