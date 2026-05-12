@@ -15,7 +15,7 @@ import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from 're
 import {
   Home, Dumbbell, LibrarySquare, ShieldCheck, User, LogOut, KeyRound,
   ChevronDown, X, Link as LinkIcon, Mail, Camera, MessageSquare, Megaphone,
-  Bell, Save, CheckCircle, Trash2, Loader2
+  Bell, Save, CheckCircle, Trash2, Loader2, UtensilsCrossed
 } from 'lucide-react';
 import { useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -36,6 +36,7 @@ const Settings = lazy(() => import('./views/Settings'));
 const AnalyticsHub = lazy(() => import('./views/AnalyticsHub'));
 const AdminPanel = lazy(() => import('./views/AdminPanel'));
 const SocialLeaderboard = lazy(() => import('./views/SocialLeaderboard'));
+const DietHub = lazy(() => import('./views/DietHub'));  // 🆕 饮食追踪模块
 
 // 其他组件
 import ConfettiEffect from './components/ConfettiEffect';
@@ -262,6 +263,7 @@ const AppContent = () => {
     { path: '/', component: <Dashboard />, label: '仪表盘', padding: true },
     { path: '/workout', component: <WorkoutFlow />, label: '训练', padding: false },
     { path: '/lib', component: <ExerciseLib />, label: '动作库', padding: true },
+    { path: '/diet', component: <DietHub />, label: '饮食', padding: true },  // 🆕 饮食追踪
     { path: '/analytics', component: <AnalyticsHub />, label: '数据分析', padding: true },
     { path: '/settings', component: <Settings />, label: '设置', padding: true },
     // 管理面板使用独立路由（不做 Keep-Alive，避免缓存权限问题）
@@ -535,6 +537,7 @@ const AppContent = () => {
       <nav className={`h-[76px] glass-panel flex justify-around items-center shrink-0 env-pb border-t border-white/10 rounded-t-3xl pb-2 pt-1 mx-2 relative z-[50] transition-all duration-300 ${modalOpen ? 'translate-y-full opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'}`}>
         <NavItem to="/" icon={<Home />} label="主页" active={isTabActive('/')} />
         <NavItem to="/workout" icon={<Dumbbell />} label="训练" active={isTabActive('/workout')} />
+        <NavItem to="/diet" icon={<UtensilsCrossed />} label="饮食" active={isTabActive('/diet')} />
         <div
           role="button"
           onPointerDown={handlePointerDown}

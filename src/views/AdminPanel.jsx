@@ -47,7 +47,13 @@ const AdminPanel = () => {
         setError(data.error || '获取用户列表失败');
       } else {
         const data = await resp.json();
-        setUsers(data);
+        if (Array.isArray(data)) {
+          setUsers(data);
+        } else {
+          console.error('Unexpected data format from /api/admin/users:', data);
+          setUsers([]);
+          setError('服务器返回数据格式不正确');
+        }
       }
     } catch {
       setError('网络错误，请检查连接');
@@ -137,13 +143,13 @@ const AdminPanel = () => {
         <StatCard
           icon={<Users size={18} />}
           label="注册用户"
-          value={users.length}
+          value={Array.isArray(users) ? users.length : 0}
           color="emerald"
         />
         <StatCard
           icon={<Crown size={18} />}
           label="管理员"
-          value={users.filter(u => u.role === 'admin').length}
+          value={Array.isArray(users) ? users.filter(u => u?.role === 'admin').length : 0}
           color="amber"
         />
       </div>
@@ -268,14 +274,14 @@ const AdminPanel = () => {
           <div className="flex items-center justify-center py-16">
             <Loader2 size={24} className="animate-spin text-emerald-400" />
           </div>
-        ) : users.length === 0 ? (
+        ) : (Array.isArray(users) && users.length === 0) ? (
           <div className="text-center py-16 text-neutral-600">
             <Users size={32} className="mx-auto mb-2 opacity-30" />
             <p className="text-sm">暂无注册用户</p>
           </div>
         ) : (
           <div className="divide-y divide-white/[0.04]">
-            {users.map((u, i) => (
+            {Array.isArray(users) && users.map((u, i) => (
               <motion.div
                 key={u.id}
                 initial={{ opacity: 0, x: -12 }}

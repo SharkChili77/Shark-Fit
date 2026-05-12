@@ -33,6 +33,7 @@ const authRouter  = require('./routes/auth');
 const adminRouter = require('./routes/admin');
 const systemRouter = require('./routes/system'); // 🆕 引入系统配置路由
 const socialRouter = require('./routes/social');
+const dietRouter = require('./routes/diet');     // 🆕 引入饮食模块路由
 
 // 🆕 安全加固
 const helmet = require('helmet');
@@ -102,6 +103,9 @@ app.use('/api/system', systemRouter);
 
 // 社交功能：全系统 PR 荣耀动态
 app.use('/api/social', socialRouter);
+
+// 🆕 饮食追踪：食物库 + 饮食记录
+app.use('/api', dietRouter);
 
 
 

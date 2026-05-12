@@ -85,6 +85,25 @@ const schemas = {
     name: z.string().min(1).max(30).optional(),
     exerciseIds: z.array(z.string()).optional(),
   }),
+
+  /** 新增自定义食物 */
+  food: z.object({
+    name: z.string().min(1, '食物名称不能为空').max(50, '食物名称过长'),
+    calories_per_100g: z.number().min(0, '热量不能为负数').max(2000, '热量值异常'),
+    protein_per_100g: z.number().min(0, '蛋白质不能为负数').max(200, '蛋白质值异常'),
+    carbs_per_100g: z.number().min(0, '碳水不能为负数').max(200, '碳水值异常'),
+    fat_per_100g: z.number().min(0, '脂肪不能为负数').max(200, '脂肪值异常'),
+  }),
+
+  /** 新增饮食记录 */
+  dietLog: z.object({
+    food_id: z.number().int().min(1, '食物 ID 无效'),
+    meal_type: z.enum(['breakfast', 'lunch', 'dinner', 'snack'], {
+      errorMap: () => ({ message: '餐次类型必须是 breakfast/lunch/dinner/snack' }),
+    }),
+    weight_grams: z.number().min(1, '重量必须大于 0').max(10000, '重量超出合理范围'),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '日期格式必须是 YYYY-MM-DD'),
+  }),
 };
 
 module.exports = { validate, schemas };

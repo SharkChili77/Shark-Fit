@@ -302,4 +302,74 @@ try {
   console.warn('[DB 索引] 创建跳过:', err.message);
 }
 
+// ─── 第六步：新增 Diet Hub 饮食追踪模块表 ────────────────────────────────────
+
+db.exec(`
+  -- ✅ 食物库表
+  --    created_by: 'system' 表示系统预置食物，数字 ID 表示用户自定义食物
+  CREATE TABLE IF NOT EXISTS foods (
+    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    name               TEXT NOT NULL,
+    calories_per_100g  REAL NOT NULL DEFAULT 0,
+    protein_per_100g   REAL NOT NULL DEFAULT 0,
+    carbs_per_100g     REAL NOT NULL DEFAULT 0,
+    fat_per_100g       REAL NOT NULL DEFAULT 0,
+    created_by         TEXT NOT NULL DEFAULT 'system',
+    created_at         DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  -- ✅ 饮食记录表
+  --    meal_type: 餐次类型，限制为四种
+  --    weight_grams: 实际摄入克数
+  --    date: 北京时间日期 YYYY-MM-DD
+  CREATE TABLE IF NOT EXISTS diet_logs (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id      INTEGER NOT NULL REFERENCES users(id),
+    food_id      INTEGER NOT NULL REFERENCES foods(id),
+    meal_type    TEXT NOT NULL CHECK(meal_type IN ('breakfast','lunch','dinner','snack')),
+    weight_grams REAL NOT NULL,
+    date         TEXT NOT NULL,
+    created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  -- 为饮食记录建复合索引（按用户+日期查询）
+  CREATE INDEX IF NOT EXISTS idx_diet_logs_user_date ON diet_logs(user_id, date);
+  -- 为食物库建索引（按创建者查询）
+  CREATE INDEX IF NOT EXISTS idx_foods_created_by ON foods(created_by);
+`);
+
+// ─── 第七步：播种系统默认食物库（仅在 foods 表为空时执行）──────────────────
+
+const foodCount = db.prepare('SELECT COUNT(*) as cnt FROM foods').get();
+
+if (foodCount.cnt === 0) {
+  console.log('[DB] 首次启动 Diet Hub，播种系统默认食物数据...');
+
+  // 系统默认食物库（每 100g 的营养数据）
+  // 数据格式: [名称, 热量, 蛋白质, 碳水, 脂肪]
+  const defaultFoods = [
+    // ── 用户指定的默认食物 ──
+    ['鸡蛋', 155, 13.0, 1.1, 11.0],
+    ['鸡蛋白', 52, 11.0, 0.7, 0.2],
+    ['燕麦', 379, 13.0, 67.0, 6.5],
+    ['纯土豆泥', 86, 1.6, 17.5, 0.2],
+    ['黄瓜', 16, 0.7, 3.6, 0.1],
+    ['西红柿', 18, 0.9, 3.9, 0.2],
+  ];
+
+  const insertFood = db.prepare(`
+    INSERT INTO foods (name, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g, created_by)
+    VALUES (?, ?, ?, ?, ?, 'system')
+  `);
+
+  const seedFoods = db.transaction(() => {
+    for (const [name, cal, protein, carbs, fat] of defaultFoods) {
+      insertFood.run(name, cal, protein, carbs, fat);
+    }
+  });
+
+  seedFoods();
+  console.log(`[DB] ✅ 已播种 ${defaultFoods.length} 种系统默认食物`);
+}
+
 module.exports = db;
