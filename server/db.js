@@ -338,6 +338,14 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_foods_created_by ON foods(created_by);
 `);
 
+// 🆕 新增 is_favorite 列支持收藏功能
+addColumnSafely('foods', 'is_favorite INTEGER DEFAULT 0');
+// 🆕 新增 base_weight 列支持自定义基准重量（默认 100g）
+addColumnSafely('foods', 'base_weight REAL DEFAULT 100');
+try {
+  db.exec('CREATE INDEX IF NOT EXISTS idx_foods_favorite ON foods(is_favorite)');
+} catch (err) {}
+
 // ─── 第七步：播种系统默认食物库（仅在 foods 表为空时执行）──────────────────
 
 const foodCount = db.prepare('SELECT COUNT(*) as cnt FROM foods').get();

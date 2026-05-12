@@ -16,9 +16,51 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, X, Plus, ArrowLeft, Scale, Loader2, Flame, Beef, Wheat, Droplet } from 'lucide-react';
+import { Search, X, Plus, ArrowLeft, Scale, Loader2, Flame, Beef, Wheat, Droplet, BookOpen, Star } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import useDietStore, { calculateNutrition } from '../store/useDietStore';
 import AddCustomFoodModal from './AddCustomFoodModal';
+
+const FoodItem = ({ food, onSelect, onToggleFav }) => {
+  const isFav = !!food.is_favorite;
+  return (
+    <motion.div
+      whileTap={{ scale: 0.98 }}
+      className="w-full flex items-center justify-between p-3.5 bg-white/[0.02] hover:bg-white/[0.06]
+                 border border-white/5 hover:border-primary/20 rounded-2xl transition-all text-left group"
+    >
+      <div className="min-w-0 flex-1 flex items-center gap-3" onClick={onSelect}>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-white group-hover:text-primary transition-colors truncate">
+              {food.name}
+            </span>
+          </div>
+          <div className="flex items-center gap-3 mt-1">
+            <span className="text-[10px] text-orange-400 font-bold">{food.calories_per_100g} kcal</span>
+            <span className="text-[10px] text-neutral-500">
+              每 {food.base_weight || 100}g
+            </span>
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center gap-3 ml-2 shrink-0">
+        <button 
+          onClick={(e) => { e.stopPropagation(); onToggleFav(); }}
+          className={`p-2 rounded-xl transition-all ${isFav ? 'text-amber-400 bg-amber-400/10' : 'text-neutral-700 hover:text-amber-400'}`}
+        >
+          <Star size={14} fill={isFav ? "currentColor" : "none"} />
+        </button>
+        <button 
+          onClick={onSelect}
+          className="p-2 text-neutral-700 group-hover:text-primary transition-colors"
+        >
+          <Plus size={16} />
+        </button>
+      </div>
+    </motion.div>
+  );
+};
 
 const FoodSearchModal = ({ isOpen, onClose, mealType, date }) => {
   // ── 状态管理 ───────────────────────────────────────────────────────────
@@ -26,24 +68,30 @@ const FoodSearchModal = ({ isOpen, onClose, mealType, date }) => {
   const [selectedFood, setSelectedFood] = useState(null);  // 已选中的食物
   const [weightInput, setWeightInput] = useState('100');     // 重量输入（默认100克）
   const [showCustomFood, setShowCustomFood] = useState(false); // 自定义食物弹窗
+  const [recommendations, setRecommendations] = useState([]); // 推荐食物
+  const navigate = useNavigate();
   const searchInputRef = useRef(null);
   const debounceTimer = useRef(null);
 
   const {
-    foods, isLoadingFoods, searchFoods, addDietLog,
+    foods, isLoadingFoods, searchFoods, addDietLog, toggleFavorite, fetchRecommendations
   } = useDietStore();
 
-  // ── 初始加载全部食物 ──────────────────────────────────────────────────
+  // ── 初始加载全部食物与推荐 ───────────────────────────────────────────────
   useEffect(() => {
     if (isOpen) {
       searchFoods('');
       setSearchQuery('');
       setSelectedFood(null);
       setWeightInput('100');
+      
+      // 获取智能推荐
+      fetchRecommendations(mealType).then(res => setRecommendations(res));
+
       // 延迟聚焦搜索框（等动画完成）
       setTimeout(() => searchInputRef.current?.focus(), 300);
     }
-  }, [isOpen, searchFoods]);
+  }, [isOpen, searchFoods, fetchRecommendations, mealType]);
 
   // ── 防抖搜索（300ms）──────────────────────────────────────────────────
   // 用户每次输入都会清除上一个定时器，重新设置一个 300ms 后执行的搜索
@@ -101,6 +149,7 @@ const FoodSearchModal = ({ isOpen, onClose, mealType, date }) => {
   const previewNutrition = selectedFood
     ? calculateNutrition({
         weight_grams: parseFloat(weightInput) || 0,
+        base_weight: selectedFood.base_weight,
         calories_per_100g: selectedFood.calories_per_100g,
         protein_per_100g: selectedFood.protein_per_100g,
         carbs_per_100g: selectedFood.carbs_per_100g,
@@ -119,7 +168,7 @@ const FoodSearchModal = ({ isOpen, onClose, mealType, date }) => {
   return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[2100] flex items-end justify-center">
+        <div key="food-search-modal-wrapper" className="fixed inset-0 z-[2100] flex items-end justify-center">
           {/* 背景遮罩 */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -185,61 +234,79 @@ const FoodSearchModal = ({ isOpen, onClose, mealType, date }) => {
                   </div>
 
                   {/* 食物列表 */}
-                  <div className="flex-1 overflow-y-auto min-h-0 space-y-1.5 custom-scrollbar pb-2" style={{ maxHeight: '50vh' }}>
+                  <div className="flex-1 overflow-y-auto min-h-0 space-y-3 custom-scrollbar pb-2" style={{ maxHeight: '50vh' }}>
                     {isLoadingFoods ? (
                       <div className="flex items-center justify-center py-12">
                         <Loader2 className="animate-spin text-primary" size={24} />
                       </div>
-                    ) : foods.length === 0 ? (
-                      <div className="text-center py-12">
-                        <p className="text-neutral-500 text-sm">未找到匹配的食物</p>
-                        <p className="text-neutral-600 text-xs mt-1">试试搜索其他关键词，或者新增自定义食物</p>
-                      </div>
                     ) : (
-                      foods.map((food) => (
-                        <motion.button
-                          key={food.id}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={() => handleSelectFood(food)}
-                          className="w-full flex items-center justify-between p-3.5 bg-white/[0.02] hover:bg-white/[0.06]
-                                     border border-white/5 hover:border-primary/20 rounded-2xl transition-all text-left group"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-bold text-white group-hover:text-primary transition-colors truncate">
-                                {food.name}
-                              </span>
-                              {food.created_by !== 'system' && (
-                                <span className="text-[8px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-bold shrink-0">
-                                  自定义
-                                </span>
-                              )}
+                      <>
+                        {/* 智能推荐区域 (仅在搜索框为空时显示) */}
+                        {!searchQuery && recommendations.length > 0 && (
+                          <div className="mb-4">
+                            <div className="flex items-center gap-2 mb-2 px-1">
+                              <div className="w-1 h-3 bg-amber-500 rounded-full" />
+                              <span className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">智能推荐 (昨日/收藏)</span>
                             </div>
-                            <div className="flex items-center gap-3 mt-1">
-                              <span className="text-[10px] text-orange-400 font-bold">{food.calories_per_100g} kcal</span>
-                              <span className="text-[10px] text-neutral-500">
-                                蛋白 {food.protein_per_100g}g · 碳水 {food.carbs_per_100g}g · 脂肪 {food.fat_per_100g}g
-                              </span>
+                            <div className="space-y-1.5">
+                              {recommendations.map((food, idx) => (
+                                <FoodItem 
+                                  key={`modal-rec-item-${food.id || idx}`} 
+                                  food={food} 
+                                  onSelect={() => handleSelectFood(food)}
+                                  onToggleFav={() => toggleFavorite(food.id)}
+                                />
+                              ))}
                             </div>
                           </div>
-                          <div className="text-neutral-700 group-hover:text-primary transition-colors ml-2 shrink-0">
-                            <Plus size={16} />
-                          </div>
-                        </motion.button>
-                      ))
+                        )}
+
+                        {/* 搜索结果/全部列表 */}
+                        <div className="space-y-1.5">
+                          {!searchQuery && <div className="text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-2 px-1">所有食物</div>}
+                            {foods.length === 0 ? (
+                              <div className="text-center py-12">
+                                <p className="text-neutral-500 text-sm">未找到匹配的食物</p>
+                              </div>
+                            ) : (
+                              foods.map((food, idx) => (
+                                <FoodItem 
+                                  key={`modal-food-item-${food.id || idx}`} 
+                                  food={food} 
+                                  onSelect={() => handleSelectFood(food)}
+                                  onToggleFav={() => toggleFavorite(food.id)}
+                                />
+                              ))
+                            )}
+                        </div>
+                      </>
                     )}
                   </div>
 
-                  {/* 底部：新增自定义食物按钮 */}
-                  <button
-                    onClick={() => setShowCustomFood(true)}
-                    className="w-full mt-3 py-3.5 bg-white/[0.03] hover:bg-primary/10 border border-dashed border-white/10
-                               hover:border-primary/30 rounded-2xl text-sm font-bold text-neutral-400 hover:text-primary
-                               transition-all flex items-center justify-center gap-2 shrink-0"
-                  >
-                    <Plus size={16} />
-                    新增自定义食物
-                  </button>
+                  {/* 底部：新增自定义食物 & 管理食物库 */}
+                  <div className="flex gap-2 mt-3 shrink-0">
+                    <button
+                      onClick={() => setShowCustomFood(true)}
+                      className="flex-1 py-3.5 bg-white/[0.03] hover:bg-primary/10 border border-dashed border-white/10
+                                 hover:border-primary/30 rounded-2xl text-sm font-bold text-neutral-400 hover:text-primary
+                                 transition-all flex items-center justify-center gap-2"
+                    >
+                      <Plus size={16} />
+                      自定义食物
+                    </button>
+                    <button
+                      onClick={() => {
+                        onClose();
+                        navigate('/food-library');
+                      }}
+                      className="flex-1 py-3.5 bg-white/[0.03] hover:bg-emerald-500/10 border border-dashed border-white/10
+                                 hover:border-emerald-500/30 rounded-2xl text-sm font-bold text-neutral-400 hover:text-emerald-500
+                                 transition-all flex items-center justify-center gap-2"
+                    >
+                      <BookOpen size={16} />
+                      管理食物库
+                    </button>
+                  </div>
                 </motion.div>
               ) : (
                 // ════════════ 阶段2：输入重量 + 营养预览 ════════════
@@ -261,7 +328,7 @@ const FoodSearchModal = ({ isOpen, onClose, mealType, date }) => {
                     </button>
                     <div>
                       <h2 className="text-lg font-black text-white">{selectedFood.name}</h2>
-                      <p className="text-[10px] text-neutral-500">每百克: {selectedFood.calories_per_100g} kcal</p>
+                      <p className="text-[10px] text-neutral-500">基准: {selectedFood.calories_per_100g} kcal / {selectedFood.base_weight || 100}g</p>
                     </div>
                   </div>
 
@@ -290,7 +357,7 @@ const FoodSearchModal = ({ isOpen, onClose, mealType, date }) => {
                     <div className="flex gap-2 mt-3">
                       {[50, 100, 150, 200, 250, 300].map(w => (
                         <button
-                          key={w}
+                          key={`weight-btn-${w}`}
                           onClick={() => setWeightInput(String(w))}
                           className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
                             weightInput === String(w)
@@ -308,7 +375,7 @@ const FoodSearchModal = ({ isOpen, onClose, mealType, date }) => {
                   {previewNutrition && (
                     <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 mb-6">
                       <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest mb-3">
-                        营养速览 · {weightInput || 0}g
+                        营养速览 · {weightInput || 0}g (约 {((parseFloat(weightInput)||0)/(selectedFood.base_weight||100)).toFixed(1)} 份)
                       </p>
                       <div className="grid grid-cols-4 gap-2">
                         {/* 热量 */}

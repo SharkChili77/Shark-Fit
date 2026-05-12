@@ -36,7 +36,8 @@ const Settings = lazy(() => import('./views/Settings'));
 const AnalyticsHub = lazy(() => import('./views/AnalyticsHub'));
 const AdminPanel = lazy(() => import('./views/AdminPanel'));
 const SocialLeaderboard = lazy(() => import('./views/SocialLeaderboard'));
-const DietHub = lazy(() => import('./views/DietHub'));  // 🆕 饮食追踪模块
+const DietHub = lazy(() => import('./views/DietHub'));
+const FoodLibrary = lazy(() => import('./views/FoodLibrary')); // 🆕 食物库管理
 
 // 其他组件
 import ConfettiEffect from './components/ConfettiEffect';
@@ -62,6 +63,18 @@ const AppContent = () => {
   const { isAdmin, user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // ── 性能优化：懒加载 Keep-Alive 页面 ─────────────────────────────────────
+  // 只渲染已访问过的页面，避免首次加载时挂载所有重型页面导致卡顿
+  const [visitedPaths, setVisitedPaths] = useState(() => new Set([location.pathname]));
+
+  useEffect(() => {
+    setVisitedPaths(prev => {
+      const newSet = new Set(prev);
+      newSet.add(location.pathname);
+      return newSet;
+    });
+  }, [location.pathname]);
 
   // ── 系统公告逻辑 ────────────────────────────────────────────────────────
   const [showAnnModal, setShowAnnModal] = useState(false);
@@ -263,7 +276,8 @@ const AppContent = () => {
     { path: '/', component: <Dashboard />, label: '仪表盘', padding: true },
     { path: '/workout', component: <WorkoutFlow />, label: '训练', padding: false },
     { path: '/lib', component: <ExerciseLib />, label: '动作库', padding: true },
-    { path: '/diet', component: <DietHub />, label: '饮食', padding: true },  // 🆕 饮食追踪
+    { path: '/diet', component: <DietHub />, label: '饮食', padding: true },
+    { path: '/food-library', component: <FoodLibrary />, label: '食物库', padding: true }, // 🆕 食物库
     { path: '/analytics', component: <AnalyticsHub />, label: '数据分析', padding: true },
     { path: '/settings', component: <Settings />, label: '设置', padding: true },
     // 管理面板使用独立路由（不做 Keep-Alive，避免缓存权限问题）
@@ -294,17 +308,21 @@ const AppContent = () => {
 
     return views.map((view) => {
       const isActive = view.path === currentPath;
+      const isVisited = visitedPaths.has(view.path);
+
       return (
         <div
           key={view.path}
-          className={`absolute inset-0 overflow-hidden transition-opacity duration-200 ${isActive ? 'z-10 opacity-100' : 'z-0 opacity-0 pointer-events-none'
+          className={`absolute inset-0 overflow-hidden transition-opacity duration-[150ms] ease-out ${isActive ? 'z-10 opacity-100' : 'z-0 opacity-0 pointer-events-none'
             }`}
         >
-          <div className={`w-full h-full ${view.padding ? 'p-4 overflow-y-auto' : ''}`}>
-            <Suspense fallback={<div className="flex justify-center items-center h-full"><Loader2 className="animate-spin text-primary" /></div>}>
-              {view.component}
-            </Suspense>
-          </div>
+          {isVisited && (
+            <div className={`w-full h-full ${view.padding ? 'p-4 overflow-y-auto' : ''}`}>
+              <Suspense fallback={<div className="flex justify-center items-center h-full"><Loader2 className="animate-spin text-primary" /></div>}>
+                {view.component}
+              </Suspense>
+            </div>
+          )}
         </div>
       );
     });

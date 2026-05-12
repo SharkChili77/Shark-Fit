@@ -10,18 +10,38 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Plus, Loader2 } from 'lucide-react';
+import { X, Plus, Loader2, Search, Edit3 } from 'lucide-react';
 import useDietStore from '../store/useDietStore';
 
-const AddCustomFoodModal = ({ isOpen, onClose, onSuccess }) => {
+const AddCustomFoodModal = ({ isOpen, onClose, onSuccess, editFood = null }) => {
   // 表单状态
   const [name, setName] = useState('');
+  const [baseWeight, setBaseWeight] = useState('100');
   const [calories, setCalories] = useState('');
   const [protein, setProtein] = useState('');
   const [carbs, setCarbs] = useState('');
   const [fat, setFat] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+
+  const { addCustomFood, updateFood, searchExternalFood } = useDietStore();
+
+  // 初始化编辑数据
+  useEffect(() => {
+    if (isOpen) {
+      if (editFood) {
+        setName(editFood.name);
+        setBaseWeight(String(editFood.base_weight || 100));
+        setCalories(String(editFood.calories_per_100g));
+        setProtein(String(editFood.protein_per_100g));
+        setCarbs(String(editFood.carbs_per_100g));
+        setFat(String(editFood.fat_per_100g));
+      } else {
+        resetForm();
+      }
+    }
+  }, [isOpen, editFood]);
 
   // 监听三大项变化，自动计算总热量 (4-4-9 规则)
   useEffect(() => {
@@ -35,11 +55,11 @@ const AddCustomFoodModal = ({ isOpen, onClose, onSuccess }) => {
     }
   }, [protein, carbs, fat]);
 
-  const { addCustomFood } = useDietStore();
 
   // 清空表单
   const resetForm = () => {
     setName('');
+    setBaseWeight('100');
     setCalories('');
     setProtein('');
     setCarbs('');
@@ -60,6 +80,7 @@ const AddCustomFoodModal = ({ isOpen, onClose, onSuccess }) => {
 
     const foodData = {
       name: name.trim(),
+      base_weight: parseFloat(baseWeight) || 100,
       calories_per_100g: parseFloat(calories) || 0,
       protein_per_100g: parseFloat(protein) || 0,
       carbs_per_100g: parseFloat(carbs) || 0,
@@ -67,7 +88,9 @@ const AddCustomFoodModal = ({ isOpen, onClose, onSuccess }) => {
     };
 
     setIsSubmitting(true);
-    const result = await addCustomFood(foodData);
+    const result = editFood 
+      ? await updateFood(editFood.id, foodData)
+      : await addCustomFood(foodData);
     setIsSubmitting(false);
 
     if (result) {
@@ -75,7 +98,7 @@ const AddCustomFoodModal = ({ isOpen, onClose, onSuccess }) => {
       onSuccess?.(result);
       onClose();
     } else {
-      setError('添加失败，请稍后重试');
+      setError(editFood ? '修改失败' : '添加失败，请稍后重试');
     }
   };
 
@@ -131,8 +154,17 @@ const AddCustomFoodModal = ({ isOpen, onClose, onSuccess }) => {
             {/* 头部 */}
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-black text-white flex items-center gap-2">
-                <Plus className="text-primary" size={20} />
-                新增自定义食物
+                {editFood ? (
+                  <>
+                    <Edit3 className="text-primary" size={20} />
+                    修改食物信息
+                  </>
+                ) : (
+                  <>
+                    <Plus className="text-primary" size={20} />
+                    新增自定义食物
+                  </>
+                )}
               </h2>
               <button onClick={onClose} className="text-neutral-500 hover:text-white transition-colors">
                 <X size={20} />
@@ -142,9 +174,42 @@ const AddCustomFoodModal = ({ isOpen, onClose, onSuccess }) => {
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* 食物名称 */}
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest ml-1">
-                  食物名称
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest ml-1">
+                    食物名称
+                  </label>
+                  {name.length >= 2 && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setIsSearching(true);
+                        setError('');
+                        const result = await searchExternalFood(name);
+                        setIsSearching(false);
+                        if (result && result.success) {
+                          const { data } = result;
+                          setProtein(String(data.protein_per_100g));
+                          setCarbs(String(data.carbs_per_100g));
+                          setFat(String(data.fat_per_100g));
+                          setCalories(String(data.calories_per_100g));
+                          setBaseWeight(String(data.base_weight || 100));
+                          // 提示用户已自动填写
+                        } else {
+                          setError('未找到该食物的营养数据，请尝试更通用的名称');
+                        }
+                      }}
+                      className="text-[10px] font-black text-primary hover:text-primary/80 transition-colors
+                                 flex items-center gap-1 bg-primary/10 px-2 py-1 rounded-lg"
+                    >
+                      {isSearching ? (
+                        <Loader2 size={10} className="animate-spin" />
+                      ) : (
+                        <Search size={10} />
+                      )}
+                      智能填写
+                    </button>
+                  )}
+                </div>
                 <input
                   type="text"
                   value={name}
@@ -156,10 +221,29 @@ const AddCustomFoodModal = ({ isOpen, onClose, onSuccess }) => {
                 />
               </div>
 
+              {/* 基准重量 */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest ml-1">
+                  基准分量 (每多少克/单位)
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={baseWeight}
+                    onChange={(e) => setBaseWeight(e.target.value.replace(/[^0-9.]/g, ''))}
+                    placeholder="100"
+                    className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white text-sm
+                               outline-none focus:border-primary/50 transition-all pr-12"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-neutral-600 font-bold">g</span>
+                </div>
+              </div>
+
               {/* 提示：百克营养数据 */}
               <div className="bg-primary/5 border border-primary/10 rounded-xl p-3">
-                <p className="text-[11px] text-primary/80 font-bold">
-                  💡 以下数据均为<span className="text-primary">每 100 克</span>含量，可从食品包装或网上查询
+                <p className="text-[11px] text-primary/80 font-bold leading-relaxed">
+                  💡 请填写该食物在 <span className="text-primary font-black">{baseWeight || 100}g</span> 下的营养含量
                 </p>
               </div>
 

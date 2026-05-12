@@ -99,7 +99,7 @@ const CircularProgress = ({
         {/* 中心文字：显示当前值 */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <motion.span
-            key={value}  // value 变化时触发重新动画
+            key={`progress-value-${value}`}  // value 变化时触发重新动画
             initial={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             className={`font-black tabular-nums leading-none ${

@@ -73,13 +73,105 @@ router.get('/foods', requireAuth, (req, res) => {
 });
 
 /**
+ * POST /api/foods/:id/toggle-favorite
+ * 切换食物收藏状态
+ */
+router.post('/foods/:id/toggle-favorite', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const food = db.prepare('SELECT is_favorite, created_by FROM foods WHERE id = ?').get(id);
+    if (!food) return res.status(404).json({ error: '食物不存在' });
+    
+    // 如果是系统食物，先复制一份给用户（可选逻辑，但为了让用户能完全修改，建议复制）
+    // 不过用户说“取消系统内置模块”，意味着以后可能没系统食物了。
+    // 这里简单处理：直接更新状态
+    const newStatus = food.is_favorite ? 0 : 1;
+    db.prepare('UPDATE foods SET is_favorite = ? WHERE id = ?').run(newStatus, id);
+
+    res.json({ success: true, is_favorite: !!newStatus });
+  } catch (err) {
+    res.status(500).json({ error: '操作失败' });
+  }
+});
+
+/**
+ * PUT /api/foods/:id
+ * 修改食物信息
+ */
+router.put('/foods/:id', requireAuth, validate(schemas.food), (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, base_weight, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g } = req.body;
+    const userId = req.user.id;
+
+    const food = db.prepare('SELECT created_by FROM foods WHERE id = ?').get(id);
+    if (!food) return res.status(404).json({ error: '食物不存在' });
+    if (food.created_by !== 'system' && food.created_by !== String(userId)) {
+      return res.status(403).json({ error: '无权修改此食物' });
+    }
+
+    db.prepare(`
+      UPDATE foods 
+      SET name = ?, base_weight = ?, calories_per_100g = ?, protein_per_100g = ?, carbs_per_100g = ?, fat_per_100g = ?
+      WHERE id = ?
+    `).run(name, base_weight || 100, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g, id);
+
+    const updated = db.prepare('SELECT * FROM foods WHERE id = ?').get(id);
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: '更新失败' });
+  }
+});
+
+/**
+ * GET /api/diet/recommendations
+ * 获取智能推荐食物（昨日同时间段 + 收藏）
+ */
+router.get('/diet/recommendations', requireAuth, (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { meal_type } = req.query;
+
+    // 获取昨日日期
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+    // 1. 获取昨日同餐次食物
+    const yesterdayFoods = db.prepare(`
+      SELECT f.*, 'yesterday' as reason
+      FROM diet_logs dl
+      JOIN foods f ON dl.food_id = f.id
+      WHERE dl.user_id = ? AND dl.date = ? AND dl.meal_type = ?
+    `).all(userId, yesterdayStr, meal_type || 'breakfast');
+
+    // 2. 获取收藏食物
+    const favoriteFoods = db.prepare(`
+      SELECT *, 'favorite' as reason
+      FROM foods
+      WHERE (created_by = 'system' OR created_by = ?) AND is_favorite = 1
+    `).all(String(userId));
+
+    // 合并并去重
+    const combined = [...yesterdayFoods, ...favoriteFoods];
+    const unique = Array.from(new Map(combined.map(item => [item.id, item])).values());
+
+    res.json(unique);
+  } catch (err) {
+    res.status(500).json({ error: '获取推荐失败' });
+  }
+});
+
+/**
  * POST /api/foods
  * 新增自定义食物
  * created_by 自动填充为当前登录用户的 user_id
  */
 router.post('/foods', requireAuth, validate(schemas.food), (req, res) => {
   try {
-    const { name, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g } = req.body;
+    const { name, base_weight, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g } = req.body;
     const userId = req.user.id;
 
     // 检查是否已存在同名食物（同一用户下）
@@ -92,15 +184,38 @@ router.post('/foods', requireAuth, validate(schemas.food), (req, res) => {
     }
 
     const result = db.prepare(`
-      INSERT INTO foods (name, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g, created_by)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(name, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g, String(userId));
+      INSERT INTO foods (name, base_weight, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g, created_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(name, base_weight || 100, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g, String(userId));
 
     const newFood = db.prepare('SELECT * FROM foods WHERE id = ?').get(result.lastInsertRowid);
     res.status(201).json(newFood);
   } catch (err) {
     console.error('[错误] 新增自定义食物失败:', err.message);
     res.status(500).json({ error: '新增自定义食物失败' });
+  }
+});
+
+/**
+ * DELETE /api/foods/:id
+ * 删除自定义食物
+ */
+router.delete('/foods/:id', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    // 系统食物不可删除
+    const food = db.prepare('SELECT created_by FROM foods WHERE id = ?').get(id);
+    if (!food) return res.status(404).json({ error: '食物不存在' });
+    if (food.created_by === 'system') return res.status(403).json({ error: '系统内置食物不可删除' });
+    if (food.created_by !== String(userId)) return res.status(403).json({ error: '无权操作此食物' });
+
+    db.prepare('DELETE FROM foods WHERE id = ? AND created_by = ?').run(id, String(userId));
+    res.json({ success: true, message: '食物已删除' });
+  } catch (err) {
+    console.error('[错误] 删除食物失败:', err.message);
+    res.status(500).json({ error: '删除食物失败' });
   }
 });
 
@@ -126,6 +241,12 @@ router.get('/diet-logs', requireAuth, (req, res) => {
     if (!date) {
       return res.status(400).json({ error: '缺少 date 参数' });
     }
+
+    // 🆕 自动清理逻辑：删除超过 15 天的旧数据
+    const fifteenDaysAgo = new Date();
+    fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
+    const cleanupDate = fifteenDaysAgo.toISOString().split('T')[0];
+    db.prepare('DELETE FROM diet_logs WHERE user_id = ? AND date < ?').run(userId, cleanupDate);
 
     // 联表查询：diet_logs JOIN foods，返回完整的食物信息 + 记录信息
     const logs = db.prepare(`
@@ -242,6 +363,10 @@ router.put('/diet-logs/:id', requireAuth, (req, res) => {
  * DELETE /api/diet-logs/:id
  * 删除饮食记录
  */
+/**
+ * DELETE /api/diet-logs/:id
+ * 删除饮食记录
+ */
 router.delete('/diet-logs/:id', requireAuth, (req, res) => {
   try {
     const { id } = req.params;
@@ -259,6 +384,95 @@ router.delete('/diet-logs/:id', requireAuth, (req, res) => {
   } catch (err) {
     console.error('[错误] 删除饮食记录失败:', err.message);
     res.status(500).json({ error: '删除饮食记录失败' });
+  }
+});
+
+/**
+ * GET /api/diet/history
+ * 获取最近 15 天的饮食概览（用于历史回顾）
+ */
+router.get('/diet/history', requireAuth, (req, res) => {
+  try {
+    const userId = req.user.id;
+    const history = db.prepare(`
+      SELECT 
+        dl.date,
+        SUM(f.calories_per_100g * dl.weight_grams / f.base_weight) as total_calories,
+        COUNT(*) as item_count
+      FROM diet_logs dl
+      JOIN foods f ON dl.food_id = f.id
+      WHERE dl.user_id = ?
+      GROUP BY dl.date
+      ORDER BY dl.date DESC
+      LIMIT 15
+    `).all(userId);
+
+    res.json(history);
+  } catch (err) {
+    res.status(500).json({ error: '获取历史记录失败' });
+  }
+});
+
+
+const { searchExternalFood } = require('../utils/nutritionSearch');
+
+/**
+ * GET /api/foods/search-external
+ * 智能搜索外部食物数据（联网搜索）
+ * 返回每 100g 的营养成分数据
+ */
+router.get('/foods/search-external', requireAuth, async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q) return res.status(400).json({ error: '缺少搜索关键词' });
+
+    const name = q.trim();
+
+    // 1. 首先尝试联网搜索 (薄荷健康)
+    const externalData = await searchExternalFood(name);
+    
+    if (externalData && externalData.calories_per_100g > 0) {
+      return res.json({
+        success: true,
+        source: 'web_boohee',
+        data: externalData
+      });
+    }
+
+    // 2. 如果联网搜索失败，回退到高质量内部精选库
+    const NUTRITION_DB = [
+      { name: '鸡胸肉', calories: 133, protein: 30.2, carbs: 0, fat: 1.3 },
+      { name: '牛肉(瘦)', calories: 155, protein: 20.2, carbs: 0, fat: 8.2 },
+      { name: '鸡蛋', calories: 155, protein: 13, carbs: 1.1, fat: 11 },
+      { name: '米饭', calories: 116, protein: 2.6, carbs: 25.9, fat: 0.3 },
+      { name: '西兰花', calories: 34, protein: 4.1, carbs: 6.6, fat: 0.6 },
+      // ... 更多项可以在这里扩充
+    ];
+
+    let match = NUTRITION_DB.find(f => f.name === name);
+    if (!match) {
+      match = NUTRITION_DB.find(f => name.includes(f.name) || f.name.includes(name));
+    }
+
+    if (match) {
+      return res.json({
+        success: true,
+        source: 'internal_knowledge_base',
+        data: {
+          name: match.name,
+          calories_per_100g: match.calories,
+          protein_per_100g: match.protein,
+          carbs_per_100g: match.carbs,
+          fat_per_100g: match.fat,
+          base_weight: 100
+        }
+      });
+    }
+
+    res.status(404).json({ error: '未找到该食物的营养数据，请手动填写' });
+  } catch (err) {
+    console.error('[搜索路由错误]', err);
+    res.status(500).json({ error: '搜索失败' });
   }
 });
 

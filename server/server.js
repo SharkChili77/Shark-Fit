@@ -57,10 +57,10 @@ app.use(cors());
 // 解析 JSON 请求体
 app.use(express.json({ limit: '5mb' }));
 
-// 🆕 全局限流：每个 IP 每 15 分钟最多 200 次请求
+// 🆕 全局限流：每个 IP 每 15 分钟最多 600 次请求
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  max: 600,
   message: { error: '请求过于频繁，请稍后再试' },
   standardHeaders: true,
   legacyHeaders: false,

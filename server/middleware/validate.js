@@ -89,10 +89,11 @@ const schemas = {
   /** 新增自定义食物 */
   food: z.object({
     name: z.string().min(1, '食物名称不能为空').max(50, '食物名称过长'),
-    calories_per_100g: z.number().min(0, '热量不能为负数').max(2000, '热量值异常'),
-    protein_per_100g: z.number().min(0, '蛋白质不能为负数').max(200, '蛋白质值异常'),
-    carbs_per_100g: z.number().min(0, '碳水不能为负数').max(200, '碳水值异常'),
-    fat_per_100g: z.number().min(0, '脂肪不能为负数').max(200, '脂肪值异常'),
+    base_weight: z.number().min(1, '基准重量必须大于 0').max(10000).default(100),
+    calories_per_100g: z.number().min(0, '热量不能为负数').max(5000, '热量值异常'),
+    protein_per_100g: z.number().min(0, '蛋白质不能为负数').max(1000, '蛋白质值异常'),
+    carbs_per_100g: z.number().min(0, '碳水不能为负数').max(1000, '碳水值异常'),
+    fat_per_100g: z.number().min(0, '脂肪不能为负数').max(1000, '脂肪值异常'),
   }),
 
   /** 新增饮食记录 */

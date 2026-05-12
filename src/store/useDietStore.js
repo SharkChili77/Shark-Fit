@@ -187,8 +187,9 @@ export const detectDayType = (todayExercises) => {
  *   → 所以吃了 2 份（每份 100g），蛋白质自然也是 2 倍
  */
 export const calculateNutrition = (log) => {
-  // 计算倍率：实际摄入克数相对于100克的比例
-  const ratio = (log.weight_grams || 0) / 100;
+  // 计算倍率：实际摄入克数相对于基准重量的比例
+  const baseWeight = log.base_weight || 100;
+  const ratio = (log.weight_grams || 0) / baseWeight;
 
   const protein = parseFloat(((log.protein_per_100g || 0) * ratio).toFixed(1));
   const carbs = parseFloat(((log.carbs_per_100g || 0) * ratio).toFixed(1));
@@ -283,6 +284,83 @@ const useDietStore = create(
           set({ foods: [result, ...get().foods] });
         }
 
+        return result;
+      },
+
+      /**
+       * 删除自定义食物
+       * @param {number} foodId - 食物 ID
+       */
+      deleteFood: async (foodId) => {
+        // 乐观更新
+        set({ foods: get().foods.filter(f => f.id !== foodId) });
+
+        const result = await apiRequest(`/api/foods/${foodId}`, {
+          method: 'DELETE',
+        });
+
+        // 如果删除失败，重新获取列表
+        if (!result) {
+          get().searchFoods('');
+        }
+        return result;
+      },
+
+      /**
+       * 切换食物收藏状态
+       */
+      toggleFavorite: async (foodId) => {
+        const result = await apiRequest(`/api/foods/${foodId}/toggle-favorite`, {
+          method: 'POST',
+        });
+        if (result) {
+          set({
+            foods: get().foods.map(f => f.id === foodId ? { ...f, is_favorite: result.is_favorite ? 1 : 0 } : f)
+          });
+        }
+        return result;
+      },
+
+      /**
+       * 更新食物信息
+       */
+      updateFood: async (foodId, foodData) => {
+        const result = await apiRequest(`/api/foods/${foodId}`, {
+          method: 'PUT',
+          body: JSON.stringify(foodData),
+        });
+        if (result) {
+          set({
+            foods: get().foods.map(f => f.id === foodId ? result : f)
+          });
+        }
+        return result;
+      },
+
+      /**
+       * 获取智能推荐食物
+       */
+      fetchRecommendations: async (mealType) => {
+        const result = await apiRequest(`/api/diet/recommendations?meal_type=${mealType}`);
+        return result || [];
+      },
+
+      /**
+       * 获取最近 15 天饮食历史概览
+       */
+      fetchDietHistory: async () => {
+        const result = await apiRequest('/api/diet/history');
+        return result || [];
+      },
+
+      /**
+       * 联网搜索外部食物数据
+       * @param {string} name - 食物名称
+       * @returns {object|null}
+       */
+      searchExternalFood: async (name) => {
+        if (!name) return null;
+        const result = await apiRequest(`/api/foods/search-external?q=${encodeURIComponent(name)}`);
         return result;
       },
 
