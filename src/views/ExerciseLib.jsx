@@ -615,9 +615,9 @@ const ExerciseLib = () => {
                 </div>
                 {routines.map(routine => (
                   <div key={routine.dayOfWeek} className="relative">
-                    <button 
+                    <div 
                       onClick={() => setSelectedRoutineDay(routine.dayOfWeek)} 
-                      className="w-full bg-surface border border-neutral-800 rounded-[2rem] p-5 flex items-center justify-between group active:scale-[0.98] transition-all hover:border-primary/30 shadow-md"
+                      className="w-full bg-surface border border-neutral-800 rounded-[2rem] p-5 flex items-center justify-between group cursor-pointer active:scale-[0.98] transition-all hover:border-primary/30 shadow-md"
                     >
                       <div className="flex items-center gap-4">
                         <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl ${routine.exerciseIds.length > 0 ? 'bg-primary/10 text-primary shadow-inner shadow-primary/5' : 'bg-neutral-800 text-neutral-600'}`}>
@@ -644,7 +644,7 @@ const ExerciseLib = () => {
                           <ChevronRight size={20} />
                         </div>
                       </div>
-                    </button>
+                    </div>
                   </div>
                 ))}
               </motion.div>

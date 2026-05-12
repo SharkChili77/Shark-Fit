@@ -36,10 +36,10 @@ import { getDayOfWeek, getTodayDateString } from '../utils/dateUtils';
 
 // ── 餐次配置 ─────────────────────────────────────────────────────────────
 const MEAL_CONFIG = [
-  { key: 'breakfast', label: '早餐', icon: Sun,    color: 'text-amber-400',  bg: 'bg-amber-500/5',  border: 'border-amber-500/10', glow: '#f59e0b' },
-  { key: 'lunch',     label: '午餐', icon: Flame,  color: 'text-orange-400', bg: 'bg-orange-500/5', border: 'border-orange-500/10', glow: '#f97316' },
-  { key: 'dinner',    label: '晚餐', icon: Moon,   color: 'text-indigo-400', bg: 'bg-indigo-500/5', border: 'border-indigo-500/10', glow: '#818cf8' },
-  { key: 'snack',     label: '加餐', icon: Cookie, color: 'text-pink-400',   bg: 'bg-pink-500/5',   border: 'border-pink-500/10', glow: '#ec4899' },
+  { key: 'breakfast', label: '早餐', icon: Sun, color: 'text-amber-400', bg: 'bg-amber-500/5', border: 'border-amber-500/10', glow: '#f59e0b' },
+  { key: 'lunch', label: '午餐', icon: Flame, color: 'text-orange-400', bg: 'bg-orange-500/5', border: 'border-orange-500/10', glow: '#f97316' },
+  { key: 'dinner', label: '晚餐', icon: Moon, color: 'text-indigo-400', bg: 'bg-indigo-500/5', border: 'border-indigo-500/10', glow: '#818cf8' },
+  { key: 'snack', label: '加餐', icon: Cookie, color: 'text-pink-400', bg: 'bg-pink-500/5', border: 'border-pink-500/10', glow: '#ec4899' },
 ];
 
 const DietHub = () => {
@@ -70,15 +70,15 @@ const DietHub = () => {
   // 设置中心状态
   const [showSettings, setShowSettings] = useState(false);
   const [tempWeight, setTempWeight] = useState(String(presetBodyWeight));
-  const [tempTargets, setTempTargets] = useState({ 
-    protein: customTargets?.protein ? String(customTargets.protein) : '', 
-    carbs: customTargets?.carbs ? String(customTargets.carbs) : '', 
-    fat: customTargets?.fat ? String(customTargets.fat) : '' 
+  const [tempTargets, setTempTargets] = useState({
+    protein: customTargets?.protein ? String(customTargets.protein) : '',
+    carbs: customTargets?.carbs ? String(customTargets.carbs) : '',
+    fat: customTargets?.fat ? String(customTargets.fat) : ''
   });
-  const [tempCarbs, setTempCarbs] = useState({ 
-    rest: String(carbsMultipliers.rest), 
-    normal: String(carbsMultipliers.normal), 
-    leg: String(carbsMultipliers.leg) 
+  const [tempCarbs, setTempCarbs] = useState({
+    rest: String(carbsMultipliers.rest),
+    normal: String(carbsMultipliers.normal),
+    leg: String(carbsMultipliers.leg)
   });
 
   // ── 监听明细开启，获取推荐 ──
@@ -145,9 +145,9 @@ const DietHub = () => {
 
   // ── 训练日类型动态配置 ────────────────────────────────────────────────
   const dynamicDayTypes = useMemo(() => [
-    { key: 'rest',   label: '休息日',   icon: BedDouble, desc: `碳水 × ${carbsMultipliers?.rest || 1.2}`, color: 'text-blue-400',   bg: 'bg-blue-500/10', border: 'border-blue-500/30' },
-    { key: 'normal', label: '训练日',   icon: Dumbbell,  desc: `碳水 × ${carbsMultipliers?.normal || 2.5}`, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30' },
-    { key: 'leg',    label: '练腿日',   icon: Zap,       desc: `碳水 × ${carbsMultipliers?.leg || 3.5}`, color: 'text-orange-400',  bg: 'bg-orange-500/10', border: 'border-orange-500/30' },
+    { key: 'rest', label: '休息日', icon: BedDouble, desc: `碳水 × ${carbsMultipliers?.rest || 1.2}`, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/30' },
+    { key: 'normal', label: '训练日', icon: Dumbbell, desc: `碳水 × ${carbsMultipliers?.normal || 2.5}`, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30' },
+    { key: 'leg', label: '练腿日', icon: Zap, desc: `碳水 × ${carbsMultipliers?.leg || 3.5}`, color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/30' },
   ], [carbsMultipliers]);
 
   // ── 训练日类型自动检测 ─────────────────────────────────────────────────
@@ -251,8 +251,7 @@ const DietHub = () => {
       <div className="mb-5">
         <button
           onClick={() => setShowDayTypeSelector(!showDayTypeSelector)}
-          className={`w-full flex items-center justify-between p-3.5 rounded-2xl border transition-all ${
-            activeDayConfig?.bg} ${activeDayConfig?.border}`}
+          className={`w-full flex items-center justify-between p-3.5 rounded-2xl border transition-all ${activeDayConfig?.bg} ${activeDayConfig?.border}`}
         >
           <div className="flex items-center gap-3">
             {activeDayConfig && <activeDayConfig.icon size={18} className={activeDayConfig.color} />}
@@ -294,11 +293,10 @@ const DietHub = () => {
                       }
                       setShowDayTypeSelector(false);
                     }}
-                    className={`p-3 rounded-xl border text-center transition-all ${
-                      activeDayType === dt.key
+                    className={`p-3 rounded-xl border text-center transition-all ${activeDayType === dt.key
                         ? `${dt.bg} ${dt.border}`
                         : 'bg-white/[0.02] border-white/5 hover:bg-white/5'
-                    }`}
+                      }`}
                   >
                     <dt.icon size={16} className={`mx-auto mb-1 ${activeDayType === dt.key ? dt.color : 'text-neutral-500'}`} />
                     <div className={`text-xs font-bold ${activeDayType === dt.key ? 'text-white' : 'text-neutral-400'}`}>
@@ -401,9 +399,9 @@ const DietHub = () => {
               onClick={() => setMealDetailOpen(meal.key)}
               className={`relative h-32 rounded-[2.5rem] p-5 flex flex-col justify-between items-start 
                          backdrop-blur-xl overflow-hidden group cursor-pointer transition-all duration-300
-                         ${isCurrentMeal 
-                           ? `bg-neutral-900/70 border-2 ${meal.border}` 
-                           : 'bg-neutral-900/40 border border-white/5'}`}
+                         ${isCurrentMeal
+                  ? `bg-neutral-900/70 border-2 ${meal.border}`
+                  : 'bg-neutral-900/40 border border-white/5'}`}
               style={isCurrentMeal ? { boxShadow: `0 0 20px ${meal.glow}30, 0 0 60px ${meal.glow}15, inset 0 1px 0 ${meal.glow}20` } : {}}
             >
               {/* 当前餐食的大光晕背景 */}
@@ -411,7 +409,7 @@ const DietHub = () => {
                 <div className="absolute -top-8 -right-8 w-28 h-28 blur-3xl opacity-30 pointer-events-none" style={{ backgroundColor: meal.glow }} />
               )}
               <div className={`absolute -top-4 -right-4 w-16 h-16 blur-2xl transition-opacity group-hover:opacity-40 ${meal.bg} ${isCurrentMeal ? 'opacity-50' : 'opacity-20'}`} />
-              
+
               <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${meal.bg} border ${meal.border} shadow-lg ${isCurrentMeal ? 'scale-110' : ''} transition-transform`}>
                 <Icon size={20} className={meal.color} />
               </div>
@@ -571,7 +569,7 @@ const DietHub = () => {
                       <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">三大营养素目标独立覆盖</label>
                       <span className="text-[9px] text-neutral-600">留空为自动计算</span>
                     </div>
-                    
+
                     <div className="grid grid-cols-2 gap-2">
                       <input type="text" value={tempTargets.protein} onChange={(e) => setTempTargets({ ...tempTargets, protein: e.target.value.replace(/[^0-9.]/g, '') })} placeholder="蛋白质 (g)" className="w-full bg-black/40 border border-white/5 rounded-xl px-3 py-2.5 text-sm font-bold text-white outline-none focus:border-blue-500/50 transition-all text-center" />
                       <input type="text" value={tempTargets.carbs} onChange={(e) => setTempTargets({ ...tempTargets, carbs: e.target.value.replace(/[^0-9.]/g, '') })} placeholder="碳水 (g)" className="w-full bg-black/40 border border-white/5 rounded-xl px-3 py-2.5 text-sm font-bold text-white outline-none focus:border-amber-500/50 transition-all text-center" />
