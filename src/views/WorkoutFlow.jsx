@@ -9,7 +9,7 @@ import { Check, ChevronRight } from 'lucide-react';
 
 const WorkoutFlow = () => {
   const navigate = useNavigate();
-  const { routines, exercises, history, activeWorkoutSession, startWorkout, updateWorkoutSession, finishWorkout } = useFitnessStore();
+  const { routines, exercises, history, activeWorkoutSession, startWorkout, updateWorkoutSession, finishWorkout, clearGlobalTimer } = useFitnessStore();
   const { isActive, focusIndex, direction, inputCaches, overrides = {} } = activeWorkoutSession;
 
   const today = getDayOfWeek();
@@ -85,7 +85,7 @@ const WorkoutFlow = () => {
   const handleNext = () => {
     if (isTrainingFocus) {
       if (focusIndex < trainingExercises.length - 1) updateWorkoutSession({ focusIndex: focusIndex + 1, direction: 1 });
-      else finishWorkout();
+      else { clearGlobalTimer(); finishWorkout(); }
     } else {
       if (viewFocusIndex < viewedExercises.length - 1) { setViewFocusIndex(viewFocusIndex + 1); setViewDirection(1); }
     }
@@ -217,7 +217,7 @@ const WorkoutFlow = () => {
                           返回正在进行的训练 ({daysLabels[trainingDay]})
                         </button>
                       )}
-                      <button onClick={finishWorkout} className="w-full py-3 rounded-2xl font-bold text-red-500 bg-red-500/5 border border-red-500/10 hover:bg-red-500/10 transition-colors">结束训练</button>
+                      <button onClick={() => { clearGlobalTimer(); finishWorkout(); }} className="w-full py-3 rounded-2xl font-bold text-red-500 bg-red-500/5 border border-red-500/10 hover:bg-red-500/10 transition-colors">结束训练</button>
                     </div>
                   ) : (
                     <button onClick={() => {
