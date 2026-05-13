@@ -70,20 +70,17 @@ export default defineConfig({
     }),
   ],
   build: {
-    // 💡 关键修复：禁用混淆时的重命名，防止 Recharts 内部报错
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        keep_fnames: true,
-        keep_classnames: true,
-      },
-      mangle: {
-        keep_fnames: true,
+    // 🚀 生产环境优化
+    minify: true,
+    target: 'esnext',
+    cssCodeSplit: true,
+    sourcemap: false,
+    chunkSizeWarningLimit: 2000,
+    rollupOptions: {
+      output: {
+        // 简化输出配置，让 Vite/Rolldown 自动处理分包
       },
     },
-    commonjsOptions: {
-      transformMixedEsModules: true,
-    }
   },
   server: {
     host: '0.0.0.0',

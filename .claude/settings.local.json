@@ -5,7 +5,11 @@
       "Bash(npm run *)",
       "Bash(netstat -ano)",
       "Bash(tasklist //FI \"PID eq 16804\")",
-      "Bash(tasklist /FI \"PID eq 16804\")"
+      "Bash(tasklist /FI \"PID eq 16804\")",
+      "Bash(node -e \"const p = require\\('./package.json'\\); const s = p.scripts; console.log\\('可用命令:'\\); Object.entries\\(s\\).forEach\\(\\([k,v]\\) => console.log\\('  npm run ' + k + ' → ' + v\\)\\)\"、)",
+      "Bash(tar -czf SharkFit_Deploy_v1.0.tar.gz --exclude=node_modules --exclude=.git --exclude=.claude --exclude=*.zip --exclude=*.tar.gz --exclude=DEPLOY.md --exclude=PROJECT_INFO.md --exclude=README.md --exclude=sharkfit.db-shm --exclude=sharkfit.db-wal dist/ server/server.js server/db.js server/package.json server/package-lock.json server/seedData.js server/.env server/middleware/ server/routes/ server/utils/ server/uploads/ server/sharkfit.db public/ ecosystem.config.cjs package.json)",
+      "Bash(tar -tzf \"D:/Desktop/健身网站/fitness-pwa/SharkFit_Deploy_v1.0.tar.gz\")",
+      "Bash(tar -tzf SharkFit_Deploy_v1.0.tar.gz)"
     ]
   }
 }

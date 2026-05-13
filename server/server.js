@@ -29,7 +29,7 @@ const db = require('./db');  // 引入数据库模块 (自动完成建表、迁�
 // 引入认证中间件和路由
 const { requireAuth } = require('./middleware/auth');
 const { validate, schemas } = require('./middleware/validate');
-const authRouter  = require('./routes/auth');
+const authRouter = require('./routes/auth');
 const adminRouter = require('./routes/admin');
 const systemRouter = require('./routes/system'); // 🆕 引入系统配置路由
 const socialRouter = require('./routes/social');
@@ -655,7 +655,7 @@ app.post('/api/system/contact', requireAuth, upload.single('qr_file'), (req, res
 
     const oldConfig = db.prepare('SELECT value FROM system_config WHERE key = ?').get('contact');
     const prevData = oldConfig ? JSON.parse(oldConfig.value) : {};
-    
+
     const newData = {
       wechat: wechat || prevData.wechat || '',
       email: email || prevData.email || '',
@@ -703,7 +703,7 @@ app.post('/api/announcements', requireAuth, (req, res) => {
     if (!user || user.role !== 'admin') return res.status(403).json({ error: '权限不足' });
 
     const { title, content, active } = req.body;
-    
+
     // 如果是启用状态，先将其他所有公告设为不启用（保证只弹出一个）
     if (active) {
       db.prepare('UPDATE announcements SET active = 0').run();
@@ -731,7 +731,7 @@ app.delete('/api/announcements/:id', requireAuth, (req, res) => {
 
     // 尝试直接删除 (SQLite 自动处理类型转换)
     const result = db.prepare('DELETE FROM announcements WHERE id = ?').run(annId);
-    
+
     if (result.changes > 0) {
       console.log('[公告] 删除成功');
       res.json({ success: true });
@@ -755,17 +755,7 @@ app.delete('/api/announcements/:id', requireAuth, (req, res) => {
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-const distDir = path.join(__dirname, '..', 'dist');
-const indexFile = path.join(distDir, 'index.html');
-
-if (fs.existsSync(indexFile)) {
-  app.use(express.static(distDir));
-  app.get(/^\/(?!api(?:\/|$)).*/, (req, res) => {
-    res.sendFile(indexFile);
-  });
-}
-
-// 健康检查
+// 1. 健康检查 (移动到这里，确保在 SPA 回退之前)
 app.get('/api/health', (req, res) => {
   try {
     const exerciseCount = db.prepare('SELECT COUNT(*) as cnt FROM exercises').get().cnt;
@@ -780,6 +770,24 @@ app.get('/api/health', (req, res) => {
     res.status(500).json({ status: 'error' });
   }
 });
+
+// 2. 静态文件服务
+const distDir = path.join(__dirname, '..', 'dist');
+const indexFile = path.join(distDir, 'index.html');
+
+if (fs.existsSync(indexFile)) {
+  app.use(express.static(distDir));
+
+  // 3. SPA 回退：所有非 API 请求都返回 index.html
+  app.get('*', (req, res, next) => {
+    // 如果是 /api 或 /uploads 路径但没匹配到上面的路由，则继续（交给 404 处理）
+    if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) {
+      return next();
+    }
+    res.sendFile(indexFile);
+  });
+}
+
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n  🐟 FinFit API Server 运行在: http://0.0.0.0:${PORT}\n`);
